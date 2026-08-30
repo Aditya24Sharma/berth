@@ -37,7 +37,7 @@ concepts involved: **[`docs/architecture.html`](docs/architecture.html)**.
 
 ## Milestones
 
-- [ ] **M0** — Go proxy serving folders by hostname (proves routing works)
+- [x] **M0** — Go proxy serving folders by hostname (proves routing works)
 - [ ] **M1** — SQLite schema and the api; deployments queue but nothing builds
 - [ ] **M2** — Build worker: clone, build in Docker, stream logs, store output
 - [ ] **M3** — Wire them together; first repo URL in, live site out
