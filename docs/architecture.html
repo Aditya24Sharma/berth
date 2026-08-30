@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{color-scheme:light dark}
+*{box-sizing:border-box}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>Berth — Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root{
+  --ground:#FAFAFB; --surface:#F1F2F5; --surface-2:#E8EAEF;
+  --ink:#16181D; --ink-2:#3E434F; --muted:#6B7183; --line:#DCDFE6;
+  --accent:#0B6E99; --accent-soft:#E4F0F6;
+  --ok:#15803D; --warn:#B45309; --bad:#B4232B;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --serif:'Source Serif 4',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101216; --surface:#171A20; --surface-2:#1F232B;
+    --ink:#E8EAEF; --ink-2:#B7BDC9; --muted:#858C9C; --line:#2A2F38;
+    --accent:#5CB8DE; --accent-soft:#14303C;
+    --ok:#45B877; --warn:#D9A036; --bad:#E0707A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101216; --surface:#171A20; --surface-2:#1F232B;
+  --ink:#E8EAEF; --ink-2:#B7BDC9; --muted:#858C9C; --line:#2A2F38;
+  --accent:#5CB8DE; --accent-soft:#14303C;
+  --ok:#45B877; --warn:#D9A036; --bad:#E0707A;
+}
+
+body{background:var(--ground);color:var(--ink);font-family:var(--serif);
+  font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:64px 24px 120px}
+.wrap>*{max-width:704px;margin-left:auto;margin-right:auto}
+.wrap>figure{max-width:880px}
+.wrap>.wide{max-width:880px}
+
+h1,h2,h3{font-family:var(--sans);text-wrap:balance;letter-spacing:-.012em;margin:0}
+h1{font-size:34px;font-weight:600;line-height:1.15}
+h2{font-size:22px;font-weight:600;margin:0 auto 14px;padding-top:8px}
+h3{font-size:16px;font-weight:600;margin:32px auto 8px}
+p{margin:0 auto 18px}
+a{color:var(--accent);text-underline-offset:3px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+strong{font-weight:600}
+code{font-family:var(--mono);font-size:.855em;background:var(--surface);
+  border:1px solid var(--line);border-radius:3px;padding:.08em .34em}
+
+.eyebrow{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin:0 auto 10px}
+.lede{font-size:19px;color:var(--ink-2);margin-top:14px}
+.deck{font-family:var(--mono);font-size:12.5px;color:var(--muted);
+  letter-spacing:.02em;margin-top:18px}
+.rule{border:0;border-top:1px solid var(--line);margin:56px auto}
+section{margin-top:52px}
+
+ul,ol{margin:0 auto 18px;padding-left:22px}
+li{margin-bottom:9px;padding-left:3px}
+li::marker{color:var(--muted)}
+ol.steps{list-style:none;padding-left:0;counter-reset:s -1}
+ol.steps>li{display:grid;grid-template-columns:54px 1fr;column-gap:16px;row-gap:3px;
+  padding:15px 0;margin:0;border-top:1px solid var(--line);align-items:start}
+ol.steps>li:last-child{border-bottom:1px solid var(--line)}
+ol.steps>li::before{content:"M" counter(s);counter-increment:s;
+  font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);
+  letter-spacing:.04em;line-height:1.55}
+ol.steps>li::before{grid-column:1;grid-row:1}
+ol.steps>li>b{grid-column:2;grid-row:1;font-family:var(--sans);font-size:15.5px;font-weight:600}
+ol.steps>li>span{grid-column:2;grid-row:2;font-size:15.5px;color:var(--ink-2)}
+
+figure{margin:36px auto 40px}
+.dg{display:block;width:100%;height:auto;color:var(--ink-2)}
+.dg .box{fill:var(--surface);stroke:var(--line);stroke-width:1}
+.dg .bus{fill:var(--surface-2);stroke:var(--line);stroke-width:1}
+.dg .edge{stroke:currentColor;stroke-width:1.25;fill:none;opacity:.7}
+.dg .div{stroke:var(--line);stroke-width:1}
+.dg .acc{stroke:var(--accent);stroke-width:1.75;fill:none;opacity:1}
+.dg .ok{stroke:var(--ok)}
+.dg .bad{stroke:var(--bad)}
+.dg .t{fill:var(--ink);font:600 13px var(--sans)}
+.dg .m{fill:var(--ink-2);font:400 11.5px var(--mono)}
+.dg .lbl{fill:var(--muted);font:400 11px var(--mono)}
+.dg .at{fill:var(--accent)}
+.dg .bt{fill:var(--bad)}
+.dg marker path{fill:currentColor}
+.dg marker.a path{fill:var(--accent)}
+figcaption{font-size:14px;color:var(--muted);margin-top:16px;
+  max-width:600px;margin-left:auto;margin-right:auto;text-align:center;line-height:1.55}
+
+dl{margin:0 auto}
+.term{border-top:1px solid var(--line);padding:16px 0}
+.term:last-child{border-bottom:1px solid var(--line)}
+.term dt{font-family:var(--mono);font-size:13.5px;font-weight:500;
+  color:var(--ink);letter-spacing:-.01em;margin-bottom:5px}
+.term dd{margin:0;font-size:15.5px;color:var(--ink-2);line-height:1.6}
+.term .here{display:block;margin-top:6px;font-family:var(--sans);font-size:13.5px;color:var(--muted)}
+.term .here b{font-weight:600;color:var(--ink-2)}
+
+.tblwrap{overflow-x:auto;margin:26px auto 30px}
+table{border-collapse:collapse;width:100%;font-family:var(--sans);font-size:14px}
+th,td{text-align:left;padding:11px 16px 11px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);border-bottom-color:var(--ink-2)}
+td:first-child{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap;padding-right:26px}
+td:nth-child(2){font-family:var(--mono);font-size:12.5px;color:var(--muted);padding-right:26px}
+td:last-child{color:var(--ink-2)}
+
+.note{background:var(--surface);border:1px solid var(--line);border-radius:5px;
+  padding:18px 20px;margin:26px auto;font-size:15.5px;color:var(--ink-2)}
+.note p{margin:0}
+.note p+p{margin-top:10px}
+.note b{color:var(--ink)}
+
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0 34px}
+.cols h3{margin-top:22px}
+.out li{color:var(--ink-2);font-size:15.5px}
+@media(max-width:640px){
+  .wrap{padding:44px 18px 90px}
+  h1{font-size:27px} .lede{font-size:17.5px} body{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+<p class="eyebrow">Architecture brief</p>
+<h1>berth</h1>
+<p class="lede">A small deployment platform, built from scratch for practice. You give it a Git repository; it builds the site and puts it on the internet at its own URL. This page is the whole design before we write any code.</p>
+<p class="deck">static sites only &nbsp;·&nbsp; typescript api + go proxy &nbsp;·&nbsp; runs entirely on your mac</p>
+
+<hr class="rule">
+
+<section>
+<p class="eyebrow">The idea</p>
+<h2>What we are actually building</h2>
+<p>Strip Vercel down and it does one thing: it turns <em>a commit in a repository</em> into <em>a URL that serves files</em>, over and over, without anyone touching a server. Everything else it sells — preview links, instant rollback, a dashboard — falls out of doing that one thing carefully.</p>
+<p>Doing it carefully means five jobs. Something has to <strong>accept</strong> the request to deploy. Something has to <strong>build</strong> the repo, safely, because a stranger's build script is a stranger's code running on your machine. The build output has to be <strong>stored</strong> somewhere it won't be disturbed. A server has to <strong>serve</strong> it at the right hostname. And a database has to <strong>remember</strong> all of it, so you can see what happened and undo it.</p>
+<p>We're building all five. We're skipping the parts that would triple the work without teaching much more — see <a href="#scope">what we're deliberately not building</a> at the end.</p>
+</section>
+
+<figure>
+<svg class="dg" viewBox="0 0 720 420" role="img" aria-label="System map: three programs — api, worker and proxy — that never call each other, coordinating instead through a shared SQLite database and a shared deployments folder on disk.">
+  <defs><marker id="ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+  <rect class="box" x="20" y="24" width="180" height="32" rx="4"/>
+  <text class="m" x="110" y="44" text-anchor="middle">you — dashboard / curl</text>
+  <rect class="box" x="250" y="24" width="180" height="32" rx="4"/>
+  <text class="m" x="340" y="44" text-anchor="middle">github · docker</text>
+  <rect class="box" x="480" y="24" width="180" height="32" rx="4"/>
+  <text class="m" x="570" y="44" text-anchor="middle">visitor — browser</text>
+
+  <rect class="box" x="20" y="100" width="180" height="62" rx="4"/>
+  <text class="t" x="110" y="126" text-anchor="middle">api</text>
+  <text class="m" x="110" y="146" text-anchor="middle">TypeScript · :4000</text>
+  <rect class="box" x="250" y="100" width="180" height="62" rx="4"/>
+  <text class="t" x="340" y="126" text-anchor="middle">worker</text>
+  <text class="m" x="340" y="146" text-anchor="middle">TypeScript</text>
+  <rect class="box" x="480" y="100" width="180" height="62" rx="4"/>
+  <text class="t" x="570" y="126" text-anchor="middle">proxy</text>
+  <text class="m" x="570" y="146" text-anchor="middle">Go · :3000</text>
+
+  <rect class="bus" x="20" y="230" width="620" height="48" rx="4"/>
+  <text class="t" x="36" y="251">SQLite</text>
+  <text class="m" x="36" y="269">projects · deployments · aliases · logs</text>
+
+  <rect class="bus" x="250" y="340" width="390" height="52" rx="4"/>
+  <text class="t" x="266" y="362">Disk</text>
+  <text class="m" x="266" y="380">~/.berth/deployments/&lt;id&gt;/</text>
+
+  <line class="edge" x1="110" y1="60" x2="110" y2="94" marker-end="url(#ah1)"/>
+  <text class="lbl" x="118" y="82">POST /deployments</text>
+  <line class="edge" x1="340" y1="94" x2="340" y2="60" marker-end="url(#ah1)"/>
+  <text class="lbl" x="348" y="82">clone repo · run build</text>
+  <line class="edge" x1="570" y1="60" x2="570" y2="94" marker-end="url(#ah1)"/>
+  <text class="lbl" x="578" y="82">GET myapp.localhost</text>
+
+  <line class="edge" x1="110" y1="166" x2="110" y2="226" marker-end="url(#ah1)"/>
+  <text class="lbl" x="118" y="200">insert · status=queued</text>
+  <line class="edge" x1="340" y1="166" x2="340" y2="226" marker-start="url(#ah1)" marker-end="url(#ah1)"/>
+  <text class="lbl" x="348" y="192">claim queued row,</text>
+  <text class="lbl" x="348" y="208">stream logs, set status</text>
+  <line class="edge" x1="570" y1="166" x2="570" y2="226" marker-end="url(#ah1)"/>
+  <text class="lbl" x="578" y="200">resolve hostname</text>
+
+  <line class="edge" x1="340" y1="282" x2="340" y2="336" marker-end="url(#ah1)"/>
+  <text class="lbl" x="348" y="313">write build output</text>
+  <path class="edge" d="M660,131 H690 V366 H646" marker-end="url(#ah1)"/>
+  <text class="lbl" x="684" y="306" text-anchor="end">read files</text>
+</svg>
+<figcaption>The three programs never call each other. They coordinate entirely through the shared database and the shared folder — which is why you can restart any one of them without the others noticing.</figcaption>
+</figure>
+
+<section>
+<p class="eyebrow">The pieces</p>
+<h2>Three programs, one job each</h2>
+
+<h3>api — the control plane</h3>
+<p>A small HTTP server in TypeScript. It creates projects, accepts "deploy this repo" requests, and reports status and logs. It writes a row saying a deployment <em>should</em> happen and returns immediately — it never builds anything itself.</p>
+<p>That split is deliberate. A build takes minutes; an HTTP request should take milliseconds. If the API built things directly, every deploy would be a request hanging open for four minutes, and a restart mid-build would lose the work with no record it ever started.</p>
+
+<h3>worker — the thing that does the work</h3>
+<p>A separate TypeScript process in a loop: look for a queued deployment, claim it, clone the repo, run <code>npm ci &amp;&amp; npm run build</code> inside a Docker container, copy the output to disk, mark it <code>ready</code> or <code>failed</code>. Logs stream into the database as they're produced, so you can watch a build instead of waiting for it.</p>
+<p>Running the build in a container isn't optional politeness. <code>npm ci</code> executes install scripts from the repo and everything it depends on. Uncontained, that is arbitrary code from the internet with full access to your laptop.</p>
+
+<h3>proxy — the front door</h3>
+<p>A Go server on one port that every visitor hits. It reads the <code>Host</code> header of the incoming request, works out which deployment that hostname means, and serves files from that deployment's folder. It's the only piece a visitor ever touches.</p>
+<p>Go earns its place here specifically: this is the one component where many requests arrive at once and each one does very little, which is exactly the shape Go's concurrency model is built for. The API and worker are I/O-bound glue, where Node is comfortable.</p>
+
+<div class="note">
+<p><b>Why the polling worker instead of a real queue.</b> Proper systems use a dedicated queue like Redis for this. We're starting with the worker asking the database "anything queued?" every couple of seconds — it's one fewer program to run, and it works fine at one build at a time.</p>
+<p>It will break in a specific, instructive way once we run several workers: two of them can read the same queued row at the same moment and both build it. That's a <b>race condition</b>, and fixing it properly (an atomic claim, then a real queue) is worth far more as a lesson learned than as a library installed on day one.</p>
+</div>
+</section>
+
+<figure>
+<svg class="dg" viewBox="0 0 720 250" role="img" aria-label="State machine: a deployment moves from queued to building, then to either ready or failed, and never changes again.">
+  <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+  <text class="lbl" x="100" y="44" text-anchor="middle">row exists · nothing runs</text>
+  <text class="lbl" x="340" y="44" text-anchor="middle">container up · logs streaming</text>
+  <text class="lbl" x="585" y="44" text-anchor="middle">files on disk · url live</text>
+
+  <rect class="box" x="30" y="64" width="140" height="50" rx="4"/>
+  <text class="t" x="100" y="94" text-anchor="middle">queued</text>
+  <rect class="box" x="270" y="64" width="140" height="50" rx="4"/>
+  <text class="t" x="340" y="94" text-anchor="middle">building</text>
+  <rect class="box ok" x="510" y="64" width="150" height="50" rx="4"/>
+  <text class="t" x="585" y="94" text-anchor="middle">ready</text>
+  <rect class="box bad" x="270" y="180" width="140" height="46" rx="4"/>
+  <text class="t" x="340" y="209" text-anchor="middle">failed</text>
+
+  <line class="edge" x1="172" y1="89" x2="264" y2="89" marker-end="url(#ah2)"/>
+  <text class="lbl" x="218" y="80" text-anchor="middle">worker claims it</text>
+  <line class="edge" x1="412" y1="89" x2="504" y2="89" marker-end="url(#ah2)"/>
+  <text class="lbl" x="458" y="80" text-anchor="middle">build exits 0</text>
+  <line class="edge" x1="340" y1="118" x2="340" y2="174" marker-end="url(#ah2)"/>
+  <text class="lbl" x="350" y="152">non-zero exit</text>
+  <text class="lbl" x="422" y="206">logs kept for debugging</text>
+</svg>
+<figcaption>Four states, and the arrows are the only ways to move between them. Once a deployment reaches <em>ready</em> or <em>failed</em> it is finished forever — a redeploy creates a new row, it never reopens an old one.</figcaption>
+</figure>
+
+<section>
+<p class="eyebrow">The central idea</p>
+<h2>Deployments are immutable; names are pointers</h2>
+<p>This is the one design decision that makes everything else fall into place, so it's worth slowing down on.</p>
+<p>When a build finishes, its files are written to <code>~/.berth/deployments/dpl_7f3a/</code> and <strong>never modified again</strong>. Not on the next deploy, not on rollback, not ever. Every deployment keeps its own folder and its own permanent URL, <code>dpl_7f3a.localhost</code>, for as long as we keep it around.</p>
+<p>So what does "this is the production site" mean? It's a row in a table: the name <code>myapp</code> points at <code>dpl_7f3a</code>. That's it. When you visit <code>myapp.localhost</code>, the proxy follows the pointer and serves whatever it currently aims at.</p>
+</section>
+
+<figure>
+<svg class="dg" viewBox="0 0 720 245" role="img" aria-label="Two request paths: an alias hostname goes through a lookup table to find a deployment id, while a deployment-id hostname addresses the files directly. Both end at the same folder on disk.">
+  <defs>
+    <marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="ah3a" class="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+
+  <text class="lbl" x="20" y="32">ALIAS URL — follows a pointer</text>
+  <rect class="box" x="20" y="44" width="200" height="46" rx="4"/>
+  <text class="m" x="120" y="72" text-anchor="middle">Host: myapp.localhost</text>
+  <rect class="box" x="290" y="44" width="180" height="46" rx="4" style="stroke:var(--accent)"/>
+  <text class="t" x="380" y="65" text-anchor="middle">aliases table</text>
+  <text class="m at" x="380" y="82" text-anchor="middle">myapp → dpl_7f3a</text>
+
+  <text class="lbl" x="20" y="168">IMMUTABLE URL — no pointer</text>
+  <rect class="box" x="20" y="180" width="200" height="46" rx="4"/>
+  <text class="m" x="120" y="208" text-anchor="middle">Host: dpl_7f3a.localhost</text>
+
+  <rect class="bus" x="520" y="100" width="180" height="80" rx="4"/>
+  <text class="t" x="610" y="126" text-anchor="middle">on disk</text>
+  <text class="m" x="610" y="148" text-anchor="middle">deployments/dpl_7f3a/</text>
+  <text class="m" x="610" y="167" text-anchor="middle">index.html</text>
+
+  <line class="edge" x1="222" y1="67" x2="284" y2="67" marker-end="url(#ah3)"/>
+  <text class="lbl" x="253" y="58" text-anchor="middle">look up</text>
+  <path class="acc" d="M470,67 H492 V124 H514" marker-end="url(#ah3a)"/>
+  <text class="lbl at" x="486" y="102" text-anchor="end">dpl_7f3a</text>
+  <path class="edge" d="M222,203 H500 V158 H514" marker-end="url(#ah3)"/>
+  <text class="lbl" x="350" y="196" text-anchor="middle">the id is already the address</text>
+</svg>
+<figcaption>Two ways in, one place the files live. The alias costs one extra lookup; in exchange, the name it resolves to can change at any moment without touching a single file.</figcaption>
+</figure>
+
+<section>
+<p>Now rollback stops being scary. The old build hasn't been deleted, overwritten, or rebuilt — it's sitting exactly where it was, still serving at its own URL. Rolling back means updating one row so the pointer aims at it again.</p>
+</section>
+
+<figure>
+<svg class="dg" viewBox="0 0 720 232" role="img" aria-label="Before and after a rollback. The only difference is which deployment the myapp alias arrow points at; all three deployments still exist and stay reachable in both panels.">
+  <defs>
+    <marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="ah4a" class="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+
+  <text class="lbl" x="16" y="26">BEFORE — newest build is broken</text>
+  <rect class="box" x="16" y="40" width="140" height="40" rx="4"/>
+  <text class="m" x="86" y="65" text-anchor="middle">myapp.localhost</text>
+  <rect class="box" x="196" y="42" width="150" height="36" rx="4"/>
+  <text class="m bt" x="271" y="65" text-anchor="middle">dpl_c3 · broken</text>
+  <rect class="box" x="196" y="98" width="150" height="36" rx="4"/>
+  <text class="m" x="271" y="121" text-anchor="middle">dpl_b2 · good</text>
+  <rect class="box" x="196" y="154" width="150" height="36" rx="4"/>
+  <text class="m" x="271" y="177" text-anchor="middle">dpl_a1 · good</text>
+  <line class="edge" x1="158" y1="60" x2="190" y2="60" marker-end="url(#ah4)"/>
+
+  <line class="div" x1="366" y1="18" x2="366" y2="206"/>
+
+  <text class="lbl" x="386" y="26">AFTER — one row updated</text>
+  <rect class="box" x="386" y="40" width="140" height="40" rx="4"/>
+  <text class="m" x="456" y="65" text-anchor="middle">myapp.localhost</text>
+  <rect class="box" x="556" y="42" width="150" height="36" rx="4"/>
+  <text class="m bt" x="631" y="65" text-anchor="middle">dpl_c3 · broken</text>
+  <rect class="box" x="556" y="98" width="150" height="36" rx="4"/>
+  <text class="m" x="631" y="121" text-anchor="middle">dpl_b2 · good</text>
+  <rect class="box" x="556" y="154" width="150" height="36" rx="4"/>
+  <text class="m" x="631" y="177" text-anchor="middle">dpl_a1 · good</text>
+  <path class="acc" d="M528,60 H540 V116 H550" marker-end="url(#ah4a)"/>
+</svg>
+<figcaption>The entire rollback is the blue arrow moving down one row. Nothing is rebuilt, nothing is deleted, and <code>dpl_c3</code> stays reachable at its own URL so you can keep debugging the build that broke.</figcaption>
+</figure>
+
+<section>
+<p class="eyebrow">State</p>
+<h2>What the database holds</h2>
+<p>One SQLite file. SQLite is a database that lives in a single file with no server process to run — which is exactly right here, and its real limits (one writer at a time) are worth meeting firsthand rather than reading about.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Table</th><th>Key columns</th><th>What it's for</th></tr></thead>
+<tbody>
+<tr><td>projects</td><td>id, name, repo_url, build_cmd, output_dir</td><td>A repo we know how to build. <code>output_dir</code> exists because Vite writes to <code>dist</code>, Create React App writes to <code>build</code>, and nothing agrees.</td></tr>
+<tr><td>deployments</td><td>id, project_id, commit_sha, status, created_at</td><td>One attempt to build one commit. Written once as <code>queued</code>, then only its status moves.</td></tr>
+<tr><td>aliases</td><td>hostname, deployment_id</td><td>The pointers. <code>myapp → dpl_7f3a</code>. Rollback is an UPDATE here and nothing else.</td></tr>
+<tr><td>logs</td><td>deployment_id, seq, stream, line</td><td>Build output, line by line, as it happens. <code>seq</code> keeps ordering; <code>stream</code> separates normal output from errors.</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section>
+<p class="eyebrow">Vocabulary</p>
+<h2>Terms worth learning properly</h2>
+<p>These come up constantly once you leave a single application and start building systems. Each one is defined plainly, then pinned to where you'll meet it in this project.</p>
+
+<dl>
+<div class="term"><dt>control plane / data plane</dt><dd>The split between the part that <em>decides</em> what should happen and the part that <em>does</em> it and carries real traffic. Nearly every infrastructure system is organised this way, because the two have completely different reliability needs.<span class="here"><b>Here:</b> the api is control plane; the worker and proxy are data plane. Your dashboard going down should never take a deployed site offline.</span></dd></div>
+
+<div class="term"><dt>reverse proxy</dt><dd>A server that sits in front of other things and forwards each request to the right one. "Reverse" because a normal proxy acts for the client; this one acts for the servers.<span class="here"><b>Here:</b> our Go program. nginx, Caddy and Cloudflare are all doing a fancier version of the same job.</span></dd></div>
+
+<div class="term"><dt>Host header</dt><dd>A line every HTTP request carries saying which hostname you asked for. Without it, one machine on one IP address couldn't tell which of a thousand sites you wanted.<span class="here"><b>Here:</b> it's the entire routing input. <code>Host: myapp.localhost</code> is how the proxy knows what to serve.</span></dd></div>
+
+<div class="term"><dt>build artifact</dt><dd>The output of a build — the files you actually ship, as opposed to the source you wrote. Source is what you edit; an artifact is what runs.<span class="here"><b>Here:</b> the contents of <code>dist/</code> after Vite finishes. We store the artifact and throw away the clone.</span></dd></div>
+
+<div class="term"><dt>immutable</dt><dd>Never changed after it's created. If something needs to be different, you make a new one instead of editing the old one.<span class="here"><b>Here:</b> deployment folders. It's why rollback is instant and can't half-fail — the thing you're rolling back to was never touched.</span></dd></div>
+
+<div class="term"><dt>indirection</dt><dd>Pointing at a thing through a name rather than gripping the thing itself, so you can swap what the name means without disturbing anyone holding it.<span class="here"><b>Here:</b> the aliases table. The famous line is that every problem in computing can be solved by another layer of indirection — this is a clean example of why.</span></dd></div>
+
+<div class="term"><dt>queue &amp; worker</dt><dd>A list of jobs waiting to be done, and a process that takes them one at a time. It lets slow work happen outside the request that asked for it.<span class="here"><b>Here:</b> the <code>deployments</code> table is the queue and our worker process drains it.</span></dd></div>
+
+<div class="term"><dt>polling</dt><dd>Repeatedly asking "is there anything new?" on a timer. The opposite is being pushed a notification when something happens. Polling is simpler and wastes work; pushing is efficient and more machinery.<span class="here"><b>Here:</b> the worker polls the database every two seconds. Simple, and visibly wasteful once you watch it.</span></dd></div>
+
+<div class="term"><dt>race condition</dt><dd>Two things happening at once where the outcome depends on which one happens to get there first. They're nasty because the code looks correct and fails only sometimes.<span class="here"><b>Here:</b> two workers claiming the same queued deployment. We'll hit this on purpose when we add a second worker.</span></dd></div>
+
+<div class="term"><dt>atomic</dt><dd>Happens completely or not at all, with no observable half-done state in between.<span class="here"><b>Here:</b> claiming a job needs to be atomic, and so does the alias swap — you must never have a moment where <code>myapp</code> points at nothing.</span></dd></div>
+
+<div class="term"><dt>idempotent</dt><dd>Doing it twice has the same effect as doing it once. Crucial anywhere retries exist, because a retry means you can't be sure the first attempt didn't already work.<span class="here"><b>Here:</b> re-running a build for the same commit should produce a new deployment, not corrupt the old one.</span></dd></div>
+
+<div class="term"><dt>container / sandbox</dt><dd>An isolated environment with its own filesystem and its own view of the machine, so code inside it can't reach out and touch code outside.<span class="here"><b>Here:</b> Docker, wrapping every build. This is the difference between a deployment platform and an invitation to wipe your laptop.</span></dd></div>
+
+<div class="term"><dt>state machine</dt><dd>A thing that can only ever be in one of a fixed set of states, with defined moves between them. Writing the states down turns "what could possibly happen?" into a picture you can check.<span class="here"><b>Here:</b> queued → building → ready or failed. Any other transition is a bug.</span></dd></div>
+
+<div class="term"><dt>wildcard DNS</dt><dd>One rule covering every subdomain of a name at once, instead of registering each one. It's what lets a platform hand out unlimited URLs without any DNS work per deploy.<span class="here"><b>Here:</b> macOS already sends every <code>*.localhost</code> name to your own machine — I checked, and that's what makes per-deployment URLs work with zero setup.</span></dd></div>
+
+<div class="term"><dt>webhook</dt><dd>A URL you hand to another service so it can call <em>you</em> when something happens, instead of you asking it repeatedly.<span class="here"><b>Here:</b> the M6 stretch goal — GitHub calls us on every push so deploys happen without you asking.</span></dd></div>
+
+<div class="term"><dt>garbage collection</dt><dd>Automatically reclaiming resources nothing needs any more.<span class="here"><b>Here:</b> old deployment folders. Immutability is lovely until your disk fills up, so eventually something has to delete the builds no alias points at.</span></dd></div>
+</dl>
+</section>
+
+<section>
+<p class="eyebrow">Plan</p>
+<h2>Build order</h2>
+<p>Ordered to hit the risky and unfamiliar parts first. If subdomain routing or Docker is going to fight us, I'd rather find out in the first hour than after building everything around it.</p>
+<ol class="steps">
+<li><b>Prove the routing</b><span>A Go proxy serving two hardcoded folders based on hostname. Nothing else — no database, no builds. Confirms the foundation before anything is built on it.</span></li>
+<li><b>Data model and api</b><span>SQLite schema plus endpoints to create a project and queue a deployment. Deployments just sit in <code>queued</code>. Fully testable with <code>curl</code>, no Docker involved.</span></li>
+<li><b>The build worker</b><span>Claim a job, clone, build inside Docker with a timeout and memory limit, stream logs to the database, copy the output to disk, set the final status.</span></li>
+<li><b>Connect them</b><span>The proxy resolves real deployment ids from the database. The first end-to-end moment: a repo URL goes in, a live site comes out.</span></li>
+<li><b>Aliases and rollback</b><span>Add the pointer layer, promote a deployment to production, roll back to a previous one. The payoff for immutability.</span></li>
+<li><b>Dashboard and live logs</b><span>A minimal web UI listing projects and deployments, with build output tailing as it happens, so you stop living in curl.</span></li>
+<li><b>Stretch</b><span>GitHub webhooks for automatic deploys on push, concurrent builds (and the race condition that comes with them), and garbage-collecting unreferenced deployments.</span></li>
+</ol>
+</section>
+
+<section>
+<p class="eyebrow">Risks</p>
+<h2>What I expect to bite us</h2>
+<div class="cols">
+<div>
+<h3>Running strangers' code</h3>
+<p style="font-size:15.5px;color:var(--ink-2)">Installing dependencies executes scripts from the repo and everything it depends on. Docker with a CPU limit, a memory limit and a hard timeout from the first build — not bolted on later.</p>
+</div>
+<div>
+<h3>Every framework is different</h3>
+<p style="font-size:15.5px;color:var(--ink-2)">Output folders and build commands vary per tool. We store both per project and auto-detect as a fallback, rather than pretending there's a standard.</p>
+</div>
+<div>
+<h3>Docker isn't running</h3>
+<p style="font-size:15.5px;color:var(--ink-2)">Docker Desktop is installed on your machine but currently stopped. Without a preflight check that says so plainly, this surfaces as a baffling build failure.</p>
+</div>
+<div>
+<h3>SQLite has one writer</h3>
+<p style="font-size:15.5px;color:var(--ink-2)">Fine at our scale, and a real constraint we'll feel the moment log streaming and status updates overlap. That's the lesson, not a mistake.</p>
+</div>
+</div>
+</section>
+
+<section id="scope">
+<p class="eyebrow">Scope</p>
+<h2>What we're deliberately not building</h2>
+<p>Naming these up front is half of scoping. Each one is a real system in its own right, and each is easier to add on top of a working static pipeline than to design around from the start.</p>
+<ul class="out">
+<li><strong>Server-side rendering and serverless functions.</strong> Static files only. Running deployed apps as live processes means port allocation, health checks and crash recovery — a genuinely separate project.</li>
+<li><strong>Accounts and multi-tenancy.</strong> One user, no login. Auth would be the least interesting code in the repo.</li>
+<li><strong>HTTPS.</strong> Plain HTTP on localhost. Certificate issuance and renewal is its own rabbit hole and teaches nothing about deployment.</li>
+<li><strong>A CDN or edge network.</strong> One proxy on one machine. Geographic distribution is a caching problem, not a deployment one.</li>
+<li><strong>Autoscaling and orchestration.</strong> One worker, one build at a time — until step M6, where adding a second one is the point.</li>
+</ul>
+</section>
+
+</div>
+
+</body>
+</html>
