@@ -53,4 +53,4 @@ is easier to add on top of a working static pipeline than to design around.
 
 ## Requirements
 
-Node 20+, Go 1.22+, and Docker running locally.
+Node 24+, Go 1.22+, and Docker running locally.
