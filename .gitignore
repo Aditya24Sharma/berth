@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+# build output
+dist/
+build/
+proxy/proxy
+# local runtime state — the deployments store and sqlite db live outside the repo,
+# but keep these ignored in case anyone points BERTH_DATA_DIR at the working tree
+*.db
+*.db-wal
+*.db-shm
+.berth/
+# env
+.env
+.env.local
+# macos
+.DS_Store
