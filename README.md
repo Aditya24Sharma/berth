@@ -35,6 +35,20 @@ restarted without the others noticing.
 The full architecture, the reasoning behind each decision, and a glossary of the
 concepts involved: **[`docs/architecture.html`](docs/architecture.html)**.
 
+## Runtime state
+
+The database and the deployments store live outside the repo, under
+`BERTH_DATA_DIR` (default `~/.berth`):
+
+| | |
+|---|---|
+| `$BERTH_DATA_DIR/berth.db` | SQLite — api and worker write, proxy reads |
+| `$BERTH_DATA_DIR/deployments/<id>/` | Build output — worker writes, proxy reads |
+
+Each program reads that variable and derives both paths itself. Go cannot import
+a TypeScript constant, so the convention is the contract. None of it is
+committed, and the programs create it — never a human.
+
 ## Milestones
 
 - [x] **M0** — Go proxy serving folders by hostname (proves routing works)
