@@ -1,7 +1,108 @@
+import { createServer } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { defaultDatabasePath, openDatabase } from './db.ts'
+import { insertQueuedDeployment, loadDeployment } from './deployments.ts'
+import { readJsonBody, sendError, sendJson } from './http.ts'
+import { newDeploymentId, newProjectId, parseDeploymentId, parseProjectId } from './ids.ts'
+import { insertProject, loadProjects, parseCreateProjectBody, projectExists } from './projects.ts'
 
 const db = openDatabase()
-const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all()
+const port = Number(process.env.PORT ?? 4000)
 
-console.log(`berth api — database at ${defaultDatabasePath()}`)
-console.log(tables.map((t) => t['name']).join(', '))
+async function createProject(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const json = await readJsonBody(req)
+    if (!json.ok) {
+        sendError(res, 400, json.error)
+        return
+    }
+
+    const body = parseCreateProjectBody(json.value)
+    if (!body.ok) {
+        sendError(res, 400, body.error)
+        return
+    }
+
+    const id = newProjectId()
+    insertProject(db, id, body.value)
+    sendJson(res, 201, { id })
+}
+
+function listProjects(res: ServerResponse): void {
+    const projects = loadProjects(db)
+    if (!projects.ok) {
+        sendError(res, 500, projects.error)
+        return
+    }
+    sendJson(res, 200, projects.value)
+}
+
+function queueDeployment(res: ServerResponse, rawProjectId: string): void {
+    const projectId = parseProjectId(rawProjectId)
+    if (projectId === null || !projectExists(db, projectId)) {
+        sendError(res, 404, 'no such project')
+        return
+    }
+
+    const id = newDeploymentId()
+    insertQueuedDeployment(db, id, projectId)
+    sendJson(res, 202, { id, status: 'queued' })
+}
+
+function showDeployment(res: ServerResponse, rawId: string): void {
+    const id = parseDeploymentId(rawId)
+    if (id === null) {
+        sendError(res, 404, 'no such deployment')
+        return
+    }
+
+    const deployment = loadDeployment(db, id)
+    if (deployment === null) {
+        sendError(res, 404, 'no such deployment')
+        return
+    }
+    if (!deployment.ok) {
+        sendError(res, 500, deployment.error)
+        return
+    }
+
+    sendJson(res, 200, deployment.value)
+}
+
+async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const method = req.method ?? 'GET'
+    const path = new URL(req.url ?? '/', 'http://localhost').pathname
+        .split('/')
+        .filter((segment) => segment.length > 0)
+    const [first, second, third] = path
+
+    if (method === 'POST' && path.length === 1 && first === 'projects') {
+        return createProject(req, res)
+    }
+    if (method === 'GET' && path.length === 1 && first === 'projects') {
+        return listProjects(res)
+    }
+    if (method === 'POST' && path.length === 3 && first === 'projects' && third === 'deployments') {
+        return queueDeployment(res, second ?? '')
+    }
+    if (method === 'GET' && path.length === 2 && first === 'deployments') {
+        return showDeployment(res, second ?? '')
+    }
+
+    sendError(res, 404, 'no such route')
+}
+
+async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    try {
+        await route(req, res)
+    } catch (cause) {
+        console.error(cause)
+        sendError(res, 500, 'internal error')
+    }
+}
+
+createServer((req, res) => {
+    void handle(req, res)
+}).listen(port, () => {
+    console.log(`berth api listening on http://localhost:${port}`)
+    console.log(`database at ${defaultDatabasePath()}`)
+})
