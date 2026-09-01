@@ -1,12 +1,19 @@
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { defaultDatabasePath, openDatabase } from '#shared/db.ts'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { openDatabase } from '#shared/db.ts'
 import { insertQueuedDeployment, loadDeployment } from '#shared/deployments.ts'
 import { readJsonBody, sendError, sendJson } from './http.ts'
 import { newDeploymentId, newProjectId, parseDeploymentId, parseProjectId } from '#shared/ids.ts'
 import { insertProject, loadProjects, parseCreateProjectBody, projectExists } from '#shared/projects.ts'
 
-const db = openDatabase()
+function berthDataDir(): string {
+    return process.env.BERTH_DATA_DIR ?? join(homedir(), '.berth')
+}
+
+const databasePath = join(berthDataDir(), 'berth.db')
+const db = openDatabase(databasePath)
 const port = Number(process.env.PORT ?? 4000)
 
 async function createProject(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -104,5 +111,5 @@ createServer((req, res) => {
     void handle(req, res)
 }).listen(port, () => {
     console.log(`berth api listening on http://localhost:${port}`)
-    console.log(`database at ${defaultDatabasePath()}`)
+    console.log(`database at ${databasePath}`)
 })

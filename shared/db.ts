@@ -1,17 +1,8 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync, readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
-function berthDataDir(): string {
-    return process.env.BERTH_DATA_DIR ?? join(homedir(), '.berth')
-}
-
-export function defaultDatabasePath(): string {
-    return join(berthDataDir(), 'berth.db')
-}
-
-export function openDatabase(path: string = defaultDatabasePath()): DatabaseSync {
+export function openDatabase(path: string): DatabaseSync {
     mkdirSync(dirname(path), { recursive: true })
 
     const db = new DatabaseSync(path)
