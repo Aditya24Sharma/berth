@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { defaultDatabasePath, openDatabase } from './db.ts'
+import { defaultDatabasePath, openDatabase } from '#shared/db.ts'
 import { insertQueuedDeployment, loadDeployment } from './deployments.ts'
 import { readJsonBody, sendError, sendJson } from './http.ts'
 import { newDeploymentId, newProjectId, parseDeploymentId, parseProjectId } from '#shared/ids.ts'
