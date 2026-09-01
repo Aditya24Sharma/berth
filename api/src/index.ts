@@ -6,7 +6,7 @@ import { openDatabase } from '#shared/db.ts'
 import { insertQueuedDeployment, loadDeployment } from '#shared/deployments.ts'
 import { readJsonBody, sendError, sendJson } from './http.ts'
 import { newDeploymentId, newProjectId, parseDeploymentId, parseProjectId } from '#shared/ids.ts'
-import { insertProject, loadProjects, parseCreateProjectBody, projectExists } from '#shared/projects.ts'
+import { insertProject, loadProject, loadProjects, parseCreateProjectBody } from '#shared/projects.ts'
 
 function berthDataDir(): string {
     return process.env.BERTH_DATA_DIR ?? join(homedir(), '.berth')
@@ -45,13 +45,23 @@ function listProjects(res: ServerResponse): void {
 
 function queueDeployment(res: ServerResponse, rawProjectId: string): void {
     const projectId = parseProjectId(rawProjectId)
-    if (projectId === null || !projectExists(db, projectId)) {
+    if (projectId === null) {
         sendError(res, 404, 'no such project')
         return
     }
 
+    const project = loadProject(db, projectId)
+    if (project === null) {
+        sendError(res, 404, 'no such project')
+        return
+    }
+    if (!project.ok) {
+        sendError(res, 500, project.error)
+        return
+    }
+
     const id = newDeploymentId()
-    insertQueuedDeployment(db, id, projectId)
+    insertQueuedDeployment(db, id, project.value.id)
     sendJson(res, 202, { id, status: 'queued' })
 }
 

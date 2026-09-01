@@ -86,8 +86,9 @@ export function insertProject(db: DatabaseSync, id: ProjectId, body: CreateProje
     ).run(id, body.name, body.repoUrl, body.buildCmd, body.outputDir)
 }
 
-export function projectExists(db: DatabaseSync, id: ProjectId): boolean {
-    return db.prepare('SELECT 1 FROM projects WHERE id = ?').get(id) !== undefined
+export function loadProject(db: DatabaseSync, id: ProjectId): Parsed<Project> | null {
+    const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(id)
+    return row === undefined ? null : parseProjectRow(row)
 }
 
 export function loadProjects(db: DatabaseSync): Parsed<readonly Project[]> {
