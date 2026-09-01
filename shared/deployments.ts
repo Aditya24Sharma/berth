@@ -164,6 +164,36 @@ export function loadDeployment(db: DatabaseSync, id: DeploymentId): Parsed<Deplo
     return row === undefined ? null : parseDeploymentRow(row)
 }
 
+function parseDeploymentRows(rows: readonly Record<string, SQLOutputValue>[]): Parsed<readonly Deployment[]> {
+    const deployments: Deployment[] = []
+
+    for (const row of rows) {
+        const deployment = parseDeploymentRow(row)
+        if (!deployment.ok) return deployment
+        deployments.push(deployment.value)
+    }
+
+    return valid(deployments)
+}
+
+export function loadProjectDeployments(
+    db: DatabaseSync,
+    projectId: ProjectId,
+    limit: number,
+): Parsed<readonly Deployment[]> {
+    const rows = db
+        .prepare('SELECT * FROM deployments WHERE project_id = ? ORDER BY created_at DESC, id DESC LIMIT ?')
+        .all(projectId, limit)
+
+    return parseDeploymentRows(rows)
+}
+
+export function loadRecentDeployments(db: DatabaseSync, limit: number): Parsed<readonly Deployment[]> {
+    const rows = db.prepare('SELECT * FROM deployments ORDER BY created_at DESC, id DESC LIMIT ?').all(limit)
+
+    return parseDeploymentRows(rows)
+}
+
 export function claimQueuedDeployment(db: DatabaseSync): Parsed<BuildingDeployment> | null {
     const [row] = db
         .prepare(

@@ -11,6 +11,8 @@ import {
     claimQueuedDeployment,
     failAbandonedDeployments,
     loadDeployment,
+    loadProjectDeployments,
+    loadRecentDeployments,
     markDeploymentFailed,
     markDeploymentReady,
     recordDeploymentCommit,
@@ -193,5 +195,118 @@ test('the abandoned sweep fails builds older than the age and leaves fresh ones 
 
         assert.equal(loadOrThrow(db, fresh.id).status, 'building')
         assert.deepEqual(sweepOrThrow(db, 60, 'the worker vanished'), [])
+    })
+})
+
+function insertProjectNamed(db: DatabaseSync, name: string): ProjectId {
+    const id = newProjectId()
+    db.prepare(
+        `INSERT INTO projects (id, name, repo_url, build_cmd, output_dir)
+         VALUES (?, ?, 'https://example.com/site.git', 'npm run build', 'dist')`,
+    ).run(id, name)
+    return id
+}
+
+function insertQueuedWithCommitSha(
+    db: DatabaseSync,
+    projectId: ProjectId,
+    createdAt: string,
+    commitSha: string,
+): DeploymentId {
+    const id = newDeploymentId()
+    db.prepare('INSERT INTO deployments (id, project_id, created_at, commit_sha) VALUES (?, ?, ?, ?)').run(
+        id,
+        projectId,
+        createdAt,
+        commitSha,
+    )
+    return id
+}
+
+function projectDeploymentsOrThrow(db: DatabaseSync, projectId: ProjectId, limit: number): readonly Deployment[] {
+    const listed = loadProjectDeployments(db, projectId, limit)
+    if (!listed.ok) throw new Error(listed.error)
+    return listed.value
+}
+
+function recentDeploymentsOrThrow(db: DatabaseSync, limit: number): readonly Deployment[] {
+    const listed = loadRecentDeployments(db, limit)
+    if (!listed.ok) throw new Error(listed.error)
+    return listed.value
+}
+
+function idsOf(deployments: readonly Deployment[]): readonly DeploymentId[] {
+    return deployments.map((deployment) => deployment.id)
+}
+
+test('a project lists its own deployments newest first and stops at the limit', () => {
+    withDatabase((db) => {
+        const site = insertProjectNamed(db, 'site')
+        const docs = insertProjectNamed(db, 'docs')
+
+        const oldest = insertQueuedAt(db, site, '2026-01-01T00:00:00Z')
+        const middle = insertQueuedAt(db, site, '2026-01-01T00:00:01Z')
+        const newest = insertQueuedAt(db, site, '2026-01-01T00:00:02Z')
+        insertQueuedAt(db, docs, '2026-01-01T00:00:03Z')
+
+        assert.deepEqual(idsOf(projectDeploymentsOrThrow(db, site, 10)), [newest, middle, oldest])
+        assert.deepEqual(idsOf(projectDeploymentsOrThrow(db, site, 2)), [newest, middle])
+    })
+})
+
+test('a project with no deployments of its own lists nothing', () => {
+    withDatabase((db) => {
+        const site = insertProjectNamed(db, 'site')
+        const docs = insertProjectNamed(db, 'docs')
+        insertQueuedAt(db, docs, '2026-01-01T00:00:00Z')
+
+        assert.deepEqual(projectDeploymentsOrThrow(db, site, 10), [])
+    })
+})
+
+test('deployments created in the same second list by descending id', () => {
+    withDatabase((db) => {
+        const site = insertProjectNamed(db, 'site')
+
+        const tied = [newDeploymentId(), newDeploymentId()].sort()
+        const [lowerId, higherId] = tied
+        if (lowerId === undefined || higherId === undefined) throw new Error('expected two tied ids')
+
+        const insert = db.prepare('INSERT INTO deployments (id, project_id, created_at) VALUES (?, ?, ?)')
+        insert.run(lowerId, site, '2026-01-01T00:00:00Z')
+        insert.run(higherId, site, '2026-01-01T00:00:00Z')
+
+        assert.deepEqual(idsOf(projectDeploymentsOrThrow(db, site, 10)), [higherId, lowerId])
+        assert.deepEqual(idsOf(recentDeploymentsOrThrow(db, 10)), [higherId, lowerId])
+    })
+})
+
+test('recent deployments span every project, newest first, and stop at the limit', () => {
+    withDatabase((db) => {
+        const site = insertProjectNamed(db, 'site')
+        const docs = insertProjectNamed(db, 'docs')
+
+        const oldest = insertQueuedAt(db, site, '2026-01-01T00:00:00Z')
+        const middle = insertQueuedAt(db, docs, '2026-01-01T00:00:01Z')
+        const newest = insertQueuedAt(db, site, '2026-01-01T00:00:02Z')
+
+        assert.deepEqual(idsOf(recentDeploymentsOrThrow(db, 10)), [newest, middle, oldest])
+        assert.deepEqual(idsOf(recentDeploymentsOrThrow(db, 2)), [newest, middle])
+    })
+})
+
+test('a row that fails to parse fails the listing instead of vanishing from it', () => {
+    withDatabase((db) => {
+        const site = insertProjectNamed(db, 'site')
+        insertQueuedAt(db, site, '2026-01-01T00:00:00Z')
+        insertQueuedWithCommitSha(db, site, '2026-01-01T00:00:01Z', 'z'.repeat(40))
+
+        const listed = loadProjectDeployments(db, site, 10)
+        if (listed.ok) throw new Error(`expected a parse failure, got ${listed.value.length} deployments`)
+        assert.equal(listed.error, 'commit_sha is not a full commit sha')
+
+        const recent = loadRecentDeployments(db, 10)
+        if (recent.ok) throw new Error(`expected a parse failure, got ${recent.value.length} deployments`)
+        assert.equal(recent.error, 'commit_sha is not a full commit sha')
     })
 })
