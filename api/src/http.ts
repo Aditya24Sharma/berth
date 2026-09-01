@@ -2,9 +2,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { JsonValue, Parsed } from '#shared/json.ts'
 import { invalid, valid } from '#shared/json.ts'
 
-const MAX_BODY_BYTES = 64 * 1024
+export const MAX_BODY_BYTES = 64 * 1024
 
-export async function readJsonBody(req: IncomingMessage): Promise<Parsed<JsonValue>> {
+export async function readBody(req: IncomingMessage): Promise<Parsed<Buffer>> {
     const chunks: Buffer[] = []
     let received = 0
 
@@ -15,8 +15,12 @@ export async function readJsonBody(req: IncomingMessage): Promise<Parsed<JsonVal
         chunks.push(bytes)
     }
 
+    return valid(Buffer.concat(chunks))
+}
+
+export function parseJsonBody(raw: Buffer): Parsed<JsonValue> {
     try {
-        const body: JsonValue = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+        const body: JsonValue = JSON.parse(raw.toString('utf8'))
         return valid(body)
     } catch {
         return invalid('request body is not valid JSON')
