@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { defaultDatabasePath, openDatabase } from './db.ts'
 import { insertQueuedDeployment, loadDeployment } from './deployments.ts'
 import { readJsonBody, sendError, sendJson } from './http.ts'
-import { newDeploymentId, newProjectId, parseDeploymentId, parseProjectId } from './ids.ts'
+import { newDeploymentId, newProjectId, parseDeploymentId, parseProjectId } from '#shared/ids.ts'
 import { insertProject, loadProjects, parseCreateProjectBody, projectExists } from './projects.ts'
 
 const db = openDatabase()

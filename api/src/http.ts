@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { JsonValue, Parsed } from './json.ts'
-import { invalid, valid } from './json.ts'
+import type { JsonValue, Parsed } from '#shared/json.ts'
+import { invalid, valid } from '#shared/json.ts'
 
 const MAX_BODY_BYTES = 64 * 1024
 

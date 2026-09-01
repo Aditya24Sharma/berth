@@ -1,6 +1,6 @@
 import type { SQLOutputValue } from "node:sqlite";
 
-import { invalid, valid, type Parsed } from "./json.ts";
+import { invalid, valid, type Parsed } from "#shared/json.ts";
 
 export function requiredColumn(
   value: SQLOutputValue | undefined,

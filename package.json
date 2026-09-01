@@ -3,6 +3,9 @@
 	"private": true,
 	"version": "1.0.0",
 	"description": "A small deployment platform. Give it a Git repository; it builds the site and serves it at its own URL.",
+	"imports": {
+		"#shared/*": "./shared/*"
+	},
 	"scripts": {
 		"dev:api": "node --watch api/src/index.ts",
 		"typecheck": "tsc --noEmit",

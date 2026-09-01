@@ -4,8 +4,8 @@ import {
     parseProjectId,
     type DeploymentId,
     type ProjectId,
-} from "./ids.ts";
-import { invalid, valid, type Parsed } from "./json.ts";
+} from "#shared/ids.ts";
+import { invalid, valid, type Parsed } from "#shared/json.ts";
 import { requiredColumn } from "./columns.ts";
 
 type DeploymentCommon = {
