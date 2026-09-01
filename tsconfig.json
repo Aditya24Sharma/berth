@@ -15,5 +15,5 @@
 		"noFallthroughCasesInSwitch": true,
 		"types": ["node"]
 	},
-	"include": ["shared", "api/src"]
+	"include": ["shared", "api/src", "worker/src"]
 }
