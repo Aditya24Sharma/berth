@@ -8,6 +8,7 @@
 	},
 	"scripts": {
 		"dev:api": "node --watch api/src/index.ts",
+		"dev:worker": "node --watch worker/src/index.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "node --test"
 	},
