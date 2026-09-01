@@ -1,12 +1,19 @@
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite'
-import { parseDeploymentId, parseProjectId, type DeploymentId, type ProjectId } from '#shared/ids.ts'
+import {
+    parseCommitSha,
+    parseDeploymentId,
+    parseProjectId,
+    type CommitSha,
+    type DeploymentId,
+    type ProjectId,
+} from '#shared/ids.ts'
 import { invalid, valid, type Parsed } from '#shared/json.ts'
-import { requiredColumn } from '#shared/columns.ts'
+import { optionalColumn, requiredColumn } from '#shared/columns.ts'
 
 type DeploymentCommon = {
     readonly id: DeploymentId
     readonly projectId: ProjectId
-    readonly commitSha: string | null
+    readonly commitSha: CommitSha | null
     readonly createdAt: string
 }
 
@@ -38,12 +45,35 @@ export type Deployment =
     | ReadyDeployment
     | FailedDeployment
 
-export function parseDeploymentRow(row: Record<string, SQLOutputValue>): Parsed<Deployment> {
-    const idColumn = requiredColumn(row.id, 'id')
-    if (!idColumn.ok) return idColumn
+export type StatusWrite = 'applied' | 'ignored'
 
-    const deploymentId = parseDeploymentId(idColumn.value)
-    if (deploymentId === null) return invalid('id is not a deployment id')
+export type RetentionPolicy = {
+    readonly keepPerProject: number
+    readonly retentionDays: number
+}
+
+function deploymentIdColumn(value: SQLOutputValue | undefined): Parsed<DeploymentId> {
+    const column = requiredColumn(value, 'id')
+    if (!column.ok) return column
+
+    const id = parseDeploymentId(column.value)
+    if (id === null) return invalid('id is not a deployment id')
+    return valid(id)
+}
+
+function commitShaColumn(value: SQLOutputValue | undefined): Parsed<CommitSha | null> {
+    const column = optionalColumn(value, 'commit_sha')
+    if (!column.ok) return column
+    if (column.value === null) return valid(null)
+
+    const commitSha = parseCommitSha(column.value)
+    if (commitSha === null) return invalid('commit_sha is not a full commit sha')
+    return valid(commitSha)
+}
+
+export function parseDeploymentRow(row: Record<string, SQLOutputValue>): Parsed<Deployment> {
+    const deploymentId = deploymentIdColumn(row.id)
+    if (!deploymentId.ok) return deploymentId
 
     const projectIdColumn = requiredColumn(row.project_id, 'project_id')
     if (!projectIdColumn.ok) return projectIdColumn
@@ -51,8 +81,8 @@ export function parseDeploymentRow(row: Record<string, SQLOutputValue>): Parsed<
     const projectId = parseProjectId(projectIdColumn.value)
     if (projectId === null) return invalid('project_id is not a project id')
 
-    const commitSha = row.commit_sha === null ? null : requiredColumn(row.commit_sha, 'commit_sha')
-    if (commitSha !== null && !commitSha.ok) return commitSha
+    const commitSha = commitShaColumn(row.commit_sha)
+    if (!commitSha.ok) return commitSha
 
     const createdAt = requiredColumn(row.created_at, 'created_at')
     if (!createdAt.ok) return createdAt
@@ -61,9 +91,9 @@ export function parseDeploymentRow(row: Record<string, SQLOutputValue>): Parsed<
     if (!status.ok) return status
 
     const common: DeploymentCommon = {
-        id: deploymentId,
+        id: deploymentId.value,
         projectId,
-        commitSha: commitSha === null ? null : commitSha.value,
+        commitSha: commitSha.value,
         createdAt: createdAt.value,
     }
 
@@ -132,4 +162,92 @@ export function insertQueuedDeployment(db: DatabaseSync, id: DeploymentId, proje
 export function loadDeployment(db: DatabaseSync, id: DeploymentId): Parsed<Deployment> | null {
     const row = db.prepare('SELECT * FROM deployments WHERE id = ?').get(id)
     return row === undefined ? null : parseDeploymentRow(row)
+}
+
+export function claimQueuedDeployment(db: DatabaseSync): Parsed<BuildingDeployment> | null {
+    const [row] = db
+        .prepare(
+            `UPDATE deployments
+                SET status     = 'building',
+                    started_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+              WHERE id = (
+                      SELECT id
+                        FROM deployments
+                       WHERE status = 'queued'
+                       ORDER BY created_at, id
+                       LIMIT 1
+                    )
+                AND status = 'queued'
+             RETURNING *`,
+        )
+        .all()
+
+    if (row === undefined) return null
+
+    const deployment = parseDeploymentRow(row)
+    if (!deployment.ok) return deployment
+    if (deployment.value.status !== 'building') {
+        return invalid(`claimed deployment ${deployment.value.id} is ${deployment.value.status}`)
+    }
+
+    return valid(deployment.value)
+}
+
+export function recordDeploymentCommit(db: DatabaseSync, id: DeploymentId, commitSha: CommitSha): void {
+    db.prepare("UPDATE deployments SET commit_sha = ? WHERE id = ? AND status = 'building'").run(commitSha, id)
+}
+
+export function markDeploymentReady(db: DatabaseSync, id: DeploymentId): StatusWrite {
+    const written = db
+        .prepare(
+            `UPDATE deployments
+                SET status      = 'ready',
+                    finished_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+              WHERE id = ? AND status = 'building'`,
+        )
+        .run(id)
+
+    return written.changes > 0 ? 'applied' : 'ignored'
+}
+
+export function markDeploymentFailed(db: DatabaseSync, id: DeploymentId, error: string): StatusWrite {
+    const written = db
+        .prepare(
+            `UPDATE deployments
+                SET status      = 'failed',
+                    finished_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                    error       = ?
+              WHERE id = ? AND status = 'building'`,
+        )
+        .run(error, id)
+
+    return written.changes > 0 ? 'applied' : 'ignored'
+}
+
+export function failAbandonedDeployments(
+    db: DatabaseSync,
+    olderThanSeconds: number,
+    error: string,
+): Parsed<readonly DeploymentId[]> {
+    const rows = db
+        .prepare(
+            `UPDATE deployments
+                SET status      = 'failed',
+                    finished_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                    error       = ?
+              WHERE status = 'building'
+                AND started_at < strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)
+          RETURNING id`,
+        )
+        .all(error, `-${olderThanSeconds} seconds`)
+
+    const abandoned: DeploymentId[] = []
+
+    for (const row of rows) {
+        const id = deploymentIdColumn(row.id)
+        if (!id.ok) return id
+        abandoned.push(id.value)
+    }
+
+    return valid(abandoned)
 }
