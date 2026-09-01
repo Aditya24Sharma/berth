@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite'
-import { openDatabase } from './db.ts'
+import { openDatabase } from '#shared/db.ts'
 import { insertQueuedDeployment, parseDeploymentRow } from './deployments.ts'
 import { newDeploymentId, newProjectId } from '#shared/ids.ts'
 import type { JsonValue } from '#shared/json.ts'
