@@ -6,7 +6,7 @@ import {
     type ProjectId,
 } from "#shared/ids.ts";
 import { invalid, valid, type Parsed } from "#shared/json.ts";
-import { requiredColumn } from "./columns.ts";
+import { requiredColumn } from "#shared/columns.ts";
 
 type DeploymentCommon = {
     readonly id: DeploymentId;
