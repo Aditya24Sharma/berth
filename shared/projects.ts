@@ -2,7 +2,7 @@ import type { DatabaseSync, SQLOutputValue } from 'node:sqlite'
 import type { ProjectId } from '#shared/ids.ts'
 import type { JsonValue, Parsed } from '#shared/json.ts'
 import { parseProjectId } from '#shared/ids.ts'
-import { invalid, isJsonObject, valid } from '#shared/json.ts'
+import { invalid, isJsonObject, requiredString, valid } from '#shared/json.ts'
 import { requiredColumn } from '#shared/columns.ts'
 
 export type Project = {
@@ -19,12 +19,6 @@ export type CreateProjectBody = {
     readonly repoUrl: string
     readonly buildCmd: string
     readonly outputDir: string
-}
-
-function requiredString(value: JsonValue | undefined, field: string): Parsed<string> {
-    if (typeof value !== 'string') return invalid(`${field} must be a string`)
-    if (value.length === 0) return invalid(`${field} must not be empty`)
-    return valid(value)
 }
 
 export function parseCreateProjectBody(body: JsonValue): Parsed<CreateProjectBody> {
