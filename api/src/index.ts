@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { openDatabase } from '#shared/db.ts'
 import { insertQueuedDeployment, loadDeployment } from '#shared/deployments.ts'
-import { readJsonBody, sendError, sendJson } from './http.ts'
+import { parseJsonBody, readBody, sendError, sendJson } from './http.ts'
 import { newDeploymentId, newProjectId, parseDeploymentId, parseProjectId } from '#shared/ids.ts'
 import { insertProject, loadProject, loadProjects, parseCreateProjectBody } from '#shared/projects.ts'
 
@@ -17,7 +17,13 @@ const db = openDatabase(databasePath)
 const port = Number(process.env.PORT ?? 4000)
 
 async function createProject(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const json = await readJsonBody(req)
+    const raw = await readBody(req)
+    if (!raw.ok) {
+        sendError(res, 400, raw.error)
+        return
+    }
+
+    const json = parseJsonBody(raw.value)
     if (!json.ok) {
         sendError(res, 400, json.error)
         return
