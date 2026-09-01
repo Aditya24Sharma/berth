@@ -21,3 +21,9 @@ export function invalid<T>(error: string): Parsed<T> {
 export function isJsonObject(value: JsonValue): value is { readonly [key: string]: JsonValue } {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
+
+export function requiredString(value: JsonValue | undefined, field: string): Parsed<string> {
+    if (typeof value !== 'string') return invalid(`${field} must be a string`)
+    if (value.length === 0) return invalid(`${field} must not be empty`)
+    return valid(value)
+}
