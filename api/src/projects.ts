@@ -1,8 +1,8 @@
 import type { DatabaseSync, SQLOutputValue } from "node:sqlite";
-import type { ProjectId } from "./ids.ts";
-import type { JsonValue, Parsed } from "./json.ts";
-import { parseProjectId } from "./ids.ts";
-import { invalid, isJsonObject, valid } from "./json.ts";
+import type { ProjectId } from "#shared/ids.ts";
+import type { JsonValue, Parsed } from "#shared/json.ts";
+import { parseProjectId } from "#shared/ids.ts";
+import { invalid, isJsonObject, valid } from "#shared/json.ts";
 import { requiredColumn } from "./columns.ts";
 
 export type Project = {
