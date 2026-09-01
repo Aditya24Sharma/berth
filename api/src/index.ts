@@ -7,6 +7,7 @@ import { insertQueuedDeployment, loadDeployment } from '#shared/deployments.ts'
 import { parseJsonBody, readBody, sendError, sendJson } from './http.ts'
 import { newDeploymentId, newProjectId, parseDeploymentId, parseProjectId } from '#shared/ids.ts'
 import { insertProject, loadProject, loadProjects, parseCreateProjectBody } from '#shared/projects.ts'
+import { routeOf } from './routes.ts'
 
 function berthDataDir(): string {
     return process.env.BERTH_DATA_DIR ?? join(homedir(), '.berth')
@@ -91,32 +92,30 @@ function showDeployment(res: ServerResponse, rawId: string): void {
     sendJson(res, 200, deployment.value)
 }
 
-async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const method = req.method ?? 'GET'
-    const path = new URL(req.url ?? '/', 'http://localhost').pathname
-        .split('/')
-        .filter((segment) => segment.length > 0)
-    const [first, second, third] = path
+async function dispatch(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const route = routeOf(req.method ?? 'GET', req.url ?? '/')
 
-    if (method === 'POST' && path.length === 1 && first === 'projects') {
-        return createProject(req, res)
+    switch (route.kind) {
+        case 'createProject':
+            await createProject(req, res)
+            return
+        case 'listProjects':
+            listProjects(res)
+            return
+        case 'queueDeployment':
+            queueDeployment(res, route.projectId)
+            return
+        case 'showDeployment':
+            showDeployment(res, route.deploymentId)
+            return
+        default:
+            sendError(res, 404, 'no such route')
     }
-    if (method === 'GET' && path.length === 1 && first === 'projects') {
-        return listProjects(res)
-    }
-    if (method === 'POST' && path.length === 3 && first === 'projects' && third === 'deployments') {
-        return queueDeployment(res, second ?? '')
-    }
-    if (method === 'GET' && path.length === 2 && first === 'deployments') {
-        return showDeployment(res, second ?? '')
-    }
-
-    sendError(res, 404, 'no such route')
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
-        await route(req, res)
+        await dispatch(req, res)
     } catch (cause) {
         console.error(cause)
         sendError(res, 500, 'internal error')
