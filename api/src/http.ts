@@ -19,6 +19,8 @@ export async function readBody(req: IncomingMessage): Promise<Parsed<Buffer>> {
 }
 
 export function parseJsonBody(raw: Buffer): Parsed<JsonValue> {
+    if (raw.length === 0) return valid({})
+
     try {
         const body: JsonValue = JSON.parse(raw.toString('utf8'))
         return valid(body)
