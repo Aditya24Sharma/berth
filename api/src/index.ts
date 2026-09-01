@@ -113,7 +113,7 @@ async function dispatch(req: IncomingMessage, res: ServerResponse): Promise<void
     }
 }
 
-async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function serveRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         await dispatch(req, res)
     } catch (cause) {
@@ -123,7 +123,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 }
 
 createServer((req, res) => {
-    void handle(req, res)
+    void serveRequest(req, res)
 }).listen(port, () => {
     console.log(`berth api listening on http://localhost:${port}`)
     console.log(`database at ${databasePath}`)
