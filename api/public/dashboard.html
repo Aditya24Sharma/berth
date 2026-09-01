@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>berth</title>
+<style>
+:root {
+    --ink: #0e1116;
+    --panel: #161a22;
+    --raised: #1c212b;
+    --line: #2a313d;
+    --text: #e7eaf0;
+    --muted: #98a2b3;
+    --accent: #6ea8fe;
+    --queued: #98a2b3;
+    --building: #f5b544;
+    --ready: #4ec97e;
+    --failed: #ff7b72;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--ink);
+    color: var(--text);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+header .spacer { flex: 1; }
+
+header label {
+    color: var(--muted);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+header input { width: 74px; }
+
+#api-error {
+    margin: 0;
+    padding: 10px 18px;
+    background: rgba(255, 123, 114, 0.14);
+    border-bottom: 1px solid var(--failed);
+    color: var(--failed);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+#api-error span { flex: 1; word-break: break-word; }
+
+main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 300px 360px minmax(0, 1fr);
+    gap: 1px;
+    background: var(--line);
+}
+
+section {
+    background: var(--panel);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.panel-head h2 {
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.scroll-split { border-top: 1px solid var(--line); }
+
+h3 {
+    margin: 0;
+    padding: 10px 14px 6px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+form { padding: 0 14px 14px; }
+
+input {
+    width: 100%;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    background: var(--ink);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font: inherit;
+}
+
+input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+button {
+    padding: 6px 10px;
+    background: var(--raised);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font: inherit;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.wide { width: 100%; }
+
+ul { list-style: none; margin: 0; padding: 0; }
+
+li > button {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    padding: 9px 14px;
+    display: block;
+}
+
+li > button:hover { background: var(--raised); color: inherit; }
+li > button.selected { background: var(--raised); box-shadow: inset 3px 0 0 var(--accent); }
+
+.row-top { display: flex; align-items: center; gap: 8px; }
+.grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted { color: var(--muted); font-size: 12px; }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.empty { padding: 14px; color: var(--muted); }
+
+.pill {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+}
+
+.pill-queued { color: var(--queued); }
+.pill-building { color: var(--building); }
+.pill-ready { color: var(--ready); }
+.pill-failed { color: var(--failed); }
+.pill-unknown { color: var(--text); }
+
+#deployment-body { padding: 12px 14px; overflow-y: auto; }
+
+dl {
+    margin: 0 0 12px;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 3px 14px;
+}
+
+dt { color: var(--muted); font-size: 12px; }
+dd { margin: 0; word-break: break-word; }
+
+a { color: var(--accent); }
+
+#deployment-error {
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--failed);
+    border-radius: 4px;
+    background: rgba(255, 123, 114, 0.1);
+    color: var(--failed);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    white-space: pre-wrap;
+}
+
+#alias-form { padding: 0; margin-bottom: 12px; }
+#alias-form .row-top { align-items: flex-start; }
+#alias-form input { margin-bottom: 0; }
+#alias-note { margin: 6px 0 0; }
+
+#log {
+    flex: 1;
+    min-height: 160px;
+    overflow: auto;
+    background: var(--ink);
+    border-top: 1px solid var(--line);
+    padding: 8px 0;
+}
+
+.log-line {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    padding: 0 10px;
+}
+
+.log-stream {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding-top: 2px;
+}
+
+.log-text {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.log-stderr { background: rgba(255, 123, 114, 0.08); box-shadow: inset 2px 0 0 var(--failed); }
+.log-stderr .log-text { color: var(--failed); }
+.log-stderr .log-stream { color: var(--failed); }
+
+#stream-state { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+#stream-state.live { color: var(--building); }
+#stream-state.done { color: var(--ready); }
+#stream-state.lost { color: var(--failed); }
+
+@media (max-width: 1040px) {
+    body { height: auto; }
+    main { grid-template-columns: minmax(0, 1fr); }
+    .panel-body, #deployment-body { overflow: visible; }
+    #log { max-height: 60vh; }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <h1>berth</h1>
+    <div class="spacer"></div>
+    <label>proxy port <input id="proxy-port" inputmode="numeric" value="3000"></label>
+</header>
+
+<p id="api-error" role="alert" hidden><span id="api-error-text"></span><button id="api-error-dismiss">dismiss</button></p>
+
+<main>
+    <section>
+        <div class="panel-head"><h2>Projects</h2><button id="reload-projects">reload</button></div>
+        <div class="panel-body">
+            <form id="new-project">
+                <input id="project-name" placeholder="name" required>
+                <input id="project-repo-url" placeholder="https://github.com/owner/repo.git" required>
+                <input id="project-build-cmd" placeholder="npm ci &amp;&amp; npm run build" required>
+                <input id="project-output-dir" placeholder="dist" required>
+                <button class="wide" type="submit">Create project</button>
+            </form>
+            <ul id="projects"></ul>
+            <div class="scroll-split">
+                <h3>Aliases</h3>
+                <ul id="aliases"></ul>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="panel-head">
+            <h2 id="deployments-title">Deployments</h2>
+            <button id="reload-deployments">reload</button>
+            <button id="queue-deployment">Queue</button>
+        </div>
+        <div class="panel-body"><ul id="deployments"></ul></div>
+    </section>
+
+    <section>
+        <div class="panel-head">
+            <h2 id="deployment-title">Deployment</h2>
+            <span id="stream-state"></span>
+        </div>
+        <div id="deployment-empty" class="empty">Pick a deployment to read its build log.</div>
+        <div id="deployment-body" hidden>
+            <dl>
+                <dt>status</dt><dd id="field-status"></dd>
+                <dt>url</dt><dd><a id="field-url" class="mono"></a></dd>
+                <dt>commit</dt><dd id="field-commit" class="mono"></dd>
+                <dt>queued</dt><dd id="field-created" class="muted"></dd>
+                <dt>started</dt><dd id="field-started" class="muted"></dd>
+                <dt>finished</dt><dd id="field-finished" class="muted"></dd>
+                <dt>aliases</dt><dd id="field-aliases" class="mono"></dd>
+            </dl>
+            <p id="deployment-error" hidden></p>
+            <form id="alias-form">
+                <div class="row-top">
+                    <input id="alias-hostname" class="mono" placeholder="myapp.localhost" required>
+                    <button id="point-alias" type="submit">Point alias here</button>
+                </div>
+                <p id="alias-note" class="muted">Pointing an alias at another ready deployment is how you promote and how you roll back — both move the name, nothing is rebuilt.</p>
+            </form>
+        </div>
+        <div id="log"></div>
+    </section>
+</main>
+
+<script>
+const DEFAULT_PROXY_PORT = '3000'
+const PROXY_PORT_STORAGE_KEY = 'berth.proxyPort'
+const OPEN_DEPLOYMENT_REFRESH_MS = 3000
+
+const STATUS_PILL_CLASS = {
+    queued: 'pill-queued',
+    building: 'pill-building',
+    ready: 'pill-ready',
+    failed: 'pill-failed',
+}
+
+const view = {
+    projects: [],
+    aliases: [],
+    deployments: [],
+    selectedProjectId: null,
+    openDeployment: null,
+    proxyPort: DEFAULT_PROXY_PORT,
+}
+
+let logStream = null
+let openDeploymentRefresh = null
+
+const errorBanner = document.getElementById('api-error')
+const errorBannerText = document.getElementById('api-error-text')
+const projectsList = document.getElementById('projects')
+const aliasesList = document.getElementById('aliases')
+const deploymentsList = document.getElementById('deployments')
+const deploymentsTitle = document.getElementById('deployments-title')
+const queueDeploymentButton = document.getElementById('queue-deployment')
+const deploymentTitle = document.getElementById('deployment-title')
+const deploymentEmpty = document.getElementById('deployment-empty')
+const deploymentBody = document.getElementById('deployment-body')
+const deploymentError = document.getElementById('deployment-error')
+const aliasForm = document.getElementById('alias-form')
+const aliasHostnameInput = document.getElementById('alias-hostname')
+const pointAliasButton = document.getElementById('point-alias')
+const proxyPortInput = document.getElementById('proxy-port')
+const streamState = document.getElementById('stream-state')
+const logElement = document.getElementById('log')
+
+function showApiError(message) {
+    errorBannerText.textContent = message
+    errorBanner.hidden = false
+}
+
+function clearApiError() {
+    errorBannerText.textContent = ''
+    errorBanner.hidden = true
+}
+
+function newElement(tag, className, text) {
+    const node = document.createElement(tag)
+    if (className !== undefined) node.className = className
+    if (text !== undefined) node.textContent = text
+    return node
+}
+
+function newStatusPill(status) {
+    const pill = newElement('span', 'pill', status)
+    pill.classList.add(STATUS_PILL_CLASS[status] ?? 'pill-unknown')
+    return pill
+}
+
+function formatTimestamp(iso) {
+    if (typeof iso !== 'string') return '—'
+    const at = new Date(iso)
+    return Number.isNaN(at.getTime()) ? iso : at.toLocaleString()
+}
+
+function formatBuildDuration(deployment) {
+    if (deployment.status !== 'ready' && deployment.status !== 'failed') return null
+    const startedMs = new Date(deployment.startedAt).getTime()
+    const finishedMs = new Date(deployment.finishedAt).getTime()
+    if (Number.isNaN(startedMs) || Number.isNaN(finishedMs)) return null
+    return `${Math.max(0, Math.round((finishedMs - startedMs) / 1000))}s`
+}
+
+function proxyPortOf(raw) {
+    return /^[0-9]{1,5}$/.test(raw) ? raw : DEFAULT_PROXY_PORT
+}
+
+function storedProxyPort() {
+    try {
+        return proxyPortOf(localStorage.getItem(PROXY_PORT_STORAGE_KEY) ?? DEFAULT_PROXY_PORT)
+    } catch {
+        return DEFAULT_PROXY_PORT
+    }
+}
+
+function rememberProxyPort(port) {
+    try {
+        localStorage.setItem(PROXY_PORT_STORAGE_KEY, port)
+    } catch {
+        showApiError('this browser refused to remember the proxy port; it will reset on reload')
+    }
+}
+
+function deploymentUrl(deploymentId) {
+    return `http://${deploymentId}.localhost:${view.proxyPort}`
+}
+
+function aliasUrl(hostname) {
+    return `http://${hostname}:${view.proxyPort}`
+}
+
+async function requestJson(method, path, body) {
+    let response
+    try {
+        response = await fetch(path, {
+            method,
+            headers: body === undefined ? {} : { 'content-type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body),
+        })
+    } catch (cause) {
+        return { ok: false, error: `${method} ${path} could not reach the api: ${cause.message}` }
+    }
+
+    const text = await response.text()
+    let payload = null
+    if (text.length > 0) {
+        try {
+            payload = JSON.parse(text)
+        } catch {
+            return { ok: false, error: `${method} ${path} answered ${response.status} with a body that is not JSON` }
+        }
+    }
+
+    if (!response.ok) {
+        const reported = payload !== null && typeof payload.error === 'string' ? payload.error : String(response.status)
+        return { ok: false, error: `${method} ${path} failed: ${reported}` }
+    }
+
+    return { ok: true, value: payload }
+}
+
+function renderProjects() {
+    projectsList.replaceChildren()
+
+    if (view.projects.length === 0) {
+        projectsList.append(newElement('li', 'empty', 'No projects yet.'))
+        return
+    }
+
+    for (const project of view.projects) {
+        const button = newElement('button')
+        button.type = 'button'
+        if (project.id === view.selectedProjectId) button.classList.add('selected')
+
+        button.append(newElement('div', 'grow', project.name))
+        button.append(newElement('div', 'muted grow', project.repoUrl))
+        button.addEventListener('click', () => { void selectProject(project) })
+
+        const item = newElement('li')
+        item.append(button)
+        projectsList.append(item)
+    }
+}
+
+function renderAliases() {
+    aliasesList.replaceChildren()
+
+    if (view.aliases.length === 0) {
+        aliasesList.append(newElement('li', 'empty', 'No aliases yet.'))
+        return
+    }
+
+    for (const alias of view.aliases) {
+        const item = newElement('li')
+        const top = newElement('div', 'row-top')
+
+        const link = newElement('a', 'mono grow', alias.hostname)
+        link.href = aliasUrl(alias.hostname)
+        link.target = '_blank'
+        link.rel = 'noreferrer'
+        top.append(link)
+
+        const open = newElement('button', 'mono', alias.deploymentId)
+        open.type = 'button'
+        open.addEventListener('click', () => { void openDeployment(alias.deploymentId) })
+        top.append(open)
+
+        const wrapper = newElement('div')
+        wrapper.style.padding = '6px 14px'
+        wrapper.append(top)
+        wrapper.append(newElement('div', 'muted', `moved ${formatTimestamp(alias.updatedAt)}`))
+        item.append(wrapper)
+        aliasesList.append(item)
+    }
+}
+
+function renderDeployments() {
+    deploymentsList.replaceChildren()
+
+    if (view.selectedProjectId === null) {
+        deploymentsList.append(newElement('li', 'empty', 'Pick a project.'))
+        return
+    }
+
+    if (view.deployments.length === 0) {
+        deploymentsList.append(newElement('li', 'empty', 'No deployments yet.'))
+        return
+    }
+
+    for (const deployment of view.deployments) {
+        const button = newElement('button')
+        button.type = 'button'
+        if (view.openDeployment !== null && deployment.id === view.openDeployment.id) {
+            button.classList.add('selected')
+        }
+
+        const top = newElement('div', 'row-top')
+        top.append(newStatusPill(deployment.status))
+        top.append(newElement('span', 'mono grow', deployment.id))
+        button.append(top)
+
+        const duration = formatBuildDuration(deployment)
+        const when = `queued ${formatTimestamp(deployment.createdAt)}`
+        button.append(newElement('div', 'muted', duration === null ? when : `${when} · built in ${duration}`))
+        button.addEventListener('click', () => { void openDeployment(deployment.id) })
+
+        const item = newElement('li')
+        item.append(button)
+        deploymentsList.append(item)
+    }
+}
+
+function setField(id, text) {
+    document.getElementById(id).textContent = text
+}
+
+function renderOpenDeployment() {
+    const deployment = view.openDeployment
+
+    if (deployment === null) {
+        deploymentTitle.textContent = 'Deployment'
+        deploymentEmpty.hidden = false
+        deploymentBody.hidden = true
+        return
+    }
+
+    deploymentEmpty.hidden = true
+    deploymentBody.hidden = false
+    deploymentTitle.textContent = deployment.id
+
+    const statusField = document.getElementById('field-status')
+    statusField.replaceChildren(newStatusPill(deployment.status))
+    const duration = formatBuildDuration(deployment)
+    if (duration !== null) statusField.append(newElement('span', 'muted', ` built in ${duration}`))
+
+    const urlField = document.getElementById('field-url')
+    const url = deploymentUrl(deployment.id)
+    urlField.textContent = url
+    urlField.href = url
+    urlField.target = '_blank'
+    urlField.rel = 'noreferrer'
+
+    setField('field-commit', deployment.commitSha === null ? 'not resolved yet' : deployment.commitSha)
+    setField('field-created', formatTimestamp(deployment.createdAt))
+    setField('field-started', deployment.status === 'queued' ? '—' : formatTimestamp(deployment.startedAt))
+    setField(
+        'field-finished',
+        deployment.status === 'ready' || deployment.status === 'failed' ? formatTimestamp(deployment.finishedAt) : '—',
+    )
+
+    const pointedHere = view.aliases.filter((alias) => alias.deploymentId === deployment.id)
+    setField('field-aliases', pointedHere.length === 0 ? 'none' : pointedHere.map((alias) => alias.hostname).join(' '))
+
+    if (deployment.status === 'failed') {
+        deploymentError.textContent = deployment.error
+        deploymentError.hidden = false
+    } else {
+        deploymentError.textContent = ''
+        deploymentError.hidden = true
+    }
+
+    const isReady = deployment.status === 'ready'
+    aliasHostnameInput.disabled = !isReady
+    pointAliasButton.disabled = !isReady
+    pointAliasButton.title = isReady ? '' : 'an alias may only point at a ready deployment'
+}
+
+function setStreamState(text, className) {
+    streamState.textContent = text
+    streamState.className = className
+}
+
+function isScrolledToBottom(element) {
+    return element.scrollHeight - element.scrollTop - element.clientHeight < 4
+}
+
+function appendLogLine(line) {
+    const wasAtBottom = isScrolledToBottom(logElement)
+
+    const row = newElement('div', `log-line log-${line.stream}`)
+    row.append(newElement('span', 'log-stream', line.stream === 'stderr' ? 'err' : 'out'))
+    row.append(newElement('span', 'log-text', line.line))
+    logElement.append(row)
+
+    if (wasAtBottom) logElement.scrollTop = logElement.scrollHeight
+}
+
+function parseLogLineFrame(raw) {
+    let payload
+    try {
+        payload = JSON.parse(raw)
+    } catch {
+        return null
+    }
+
+    if (payload === null || typeof payload !== 'object') return null
+    if (typeof payload.line !== 'string') return null
+    if (payload.stream !== 'stdout' && payload.stream !== 'stderr') return null
+
+    return { stream: payload.stream, line: payload.line }
+}
+
+function parseDeploymentFrame(raw) {
+    let payload
+    try {
+        payload = JSON.parse(raw)
+    } catch {
+        return null
+    }
+
+    if (payload === null || typeof payload !== 'object') return null
+    if (typeof payload.id !== 'string' || typeof payload.status !== 'string') return null
+
+    return payload
+}
+
+function stopOpenDeploymentRefresh() {
+    if (openDeploymentRefresh === null) return
+    clearInterval(openDeploymentRefresh)
+    openDeploymentRefresh = null
+}
+
+function closeLogStream() {
+    if (logStream !== null) {
+        logStream.close()
+        logStream = null
+    }
+    stopOpenDeploymentRefresh()
+}
+
+// A build that is still running reports queued → building only in the deployments table:
+// the log stream's own status frame is sent once, when the build is already over.
+async function refreshOpenDeployment() {
+    if (view.openDeployment === null) return
+
+    const deployment = await requestJson('GET', `/deployments/${encodeURIComponent(view.openDeployment.id)}`)
+    if (!deployment.ok) {
+        showApiError(deployment.error)
+        stopOpenDeploymentRefresh()
+        return
+    }
+
+    if (view.openDeployment !== null && view.openDeployment.id === deployment.value.id) {
+        view.openDeployment = deployment.value
+        renderOpenDeployment()
+    }
+
+    await loadDeploymentsOfSelectedProject()
+}
+
+function startLogStream(deploymentId) {
+    closeLogStream()
+    logElement.replaceChildren()
+    setStreamState('connecting', '')
+
+    const stream = new EventSource(`/deployments/${encodeURIComponent(deploymentId)}/logs/stream`)
+    logStream = stream
+
+    stream.addEventListener('open', () => {
+        if (logStream !== stream) return
+        setStreamState('streaming', 'live')
+    })
+
+    stream.addEventListener('log', (event) => {
+        if (logStream !== stream) return
+        const line = parseLogLineFrame(event.data)
+        if (line === null) {
+            showApiError('the api sent a log line the dashboard could not read')
+            return
+        }
+        appendLogLine(line)
+    })
+
+    stream.addEventListener('status', (event) => {
+        if (logStream !== stream) return
+        closeLogStream()
+        setStreamState('build finished', 'done')
+
+        const deployment = parseDeploymentFrame(event.data)
+        if (deployment === null) {
+            showApiError('the api ended the log stream with a deployment the dashboard could not read')
+        } else if (view.openDeployment !== null && view.openDeployment.id === deployment.id) {
+            view.openDeployment = deployment
+            renderOpenDeployment()
+        }
+
+        void loadDeploymentsOfSelectedProject()
+    })
+
+    // EventSource dispatches its own connection failures under the same name the api uses
+    // for a server-sent error frame, and only the api's frame arrives as a MessageEvent.
+    stream.addEventListener('error', (event) => {
+        if (logStream !== stream) return
+
+        if (event instanceof MessageEvent) {
+            closeLogStream()
+            setStreamState('stream ended', 'lost')
+            const payload = parseDeploymentFrame(event.data)
+            showApiError(
+                payload !== null && typeof payload.error === 'string'
+                    ? `log stream failed: ${payload.error}`
+                    : 'log stream failed',
+            )
+            return
+        }
+
+        if (stream.readyState === EventSource.CLOSED) {
+            closeLogStream()
+            setStreamState('stream closed', 'lost')
+            return
+        }
+
+        setStreamState('reconnecting', 'lost')
+    })
+
+    openDeploymentRefresh = setInterval(() => { void refreshOpenDeployment() }, OPEN_DEPLOYMENT_REFRESH_MS)
+}
+
+async function loadProjects() {
+    const projects = await requestJson('GET', '/projects')
+    if (!projects.ok) {
+        showApiError(projects.error)
+        return
+    }
+
+    view.projects = projects.value
+    renderProjects()
+}
+
+async function loadAliases() {
+    const aliases = await requestJson('GET', '/aliases')
+    if (!aliases.ok) {
+        showApiError(aliases.error)
+        return
+    }
+
+    view.aliases = aliases.value
+    renderAliases()
+    if (view.openDeployment !== null) renderOpenDeployment()
+}
+
+async function loadDeploymentsOfSelectedProject() {
+    if (view.selectedProjectId === null) return
+
+    const projectId = view.selectedProjectId
+    const deployments = await requestJson('GET', `/projects/${encodeURIComponent(projectId)}/deployments`)
+    if (!deployments.ok) {
+        showApiError(deployments.error)
+        return
+    }
+
+    if (view.selectedProjectId !== projectId) return
+
+    view.deployments = deployments.value
+    renderDeployments()
+}
+
+async function selectProject(project) {
+    view.selectedProjectId = project.id
+    view.deployments = []
+    deploymentsTitle.textContent = project.name
+    queueDeploymentButton.disabled = false
+    renderProjects()
+    renderDeployments()
+    await loadDeploymentsOfSelectedProject()
+}
+
+async function openDeployment(deploymentId) {
+    clearApiError()
+    closeLogStream()
+
+    const deployment = await requestJson('GET', `/deployments/${encodeURIComponent(deploymentId)}`)
+    if (!deployment.ok) {
+        showApiError(deployment.error)
+        return
+    }
+
+    view.openDeployment = deployment.value
+    renderOpenDeployment()
+    renderDeployments()
+    startLogStream(deployment.value.id)
+}
+
+async function createProject(event) {
+    event.preventDefault()
+    clearApiError()
+
+    const created = await requestJson('POST', '/projects', {
+        name: document.getElementById('project-name').value.trim(),
+        repoUrl: document.getElementById('project-repo-url').value.trim(),
+        buildCmd: document.getElementById('project-build-cmd').value.trim(),
+        outputDir: document.getElementById('project-output-dir').value.trim(),
+    })
+    if (!created.ok) {
+        showApiError(created.error)
+        return
+    }
+
+    event.target.reset()
+    await loadProjects()
+
+    const project = view.projects.find((candidate) => candidate.id === created.value.id)
+    if (project !== undefined) await selectProject(project)
+}
+
+async function queueDeployment() {
+    if (view.selectedProjectId === null) return
+    clearApiError()
+
+    const queued = await requestJson('POST', `/projects/${encodeURIComponent(view.selectedProjectId)}/deployments`)
+    if (!queued.ok) {
+        showApiError(queued.error)
+        return
+    }
+
+    await loadDeploymentsOfSelectedProject()
+    await openDeployment(queued.value.id)
+}
+
+async function pointAliasAtOpenDeployment(event) {
+    event.preventDefault()
+    clearApiError()
+
+    if (view.openDeployment === null) return
+
+    const hostname = aliasHostnameInput.value.trim().toLowerCase()
+    const pointed = await requestJson('PUT', `/aliases/${encodeURIComponent(hostname)}`, {
+        deploymentId: view.openDeployment.id,
+    })
+    if (!pointed.ok) {
+        showApiError(pointed.error)
+        return
+    }
+
+    aliasHostnameInput.value = ''
+    await loadAliases()
+}
+
+function applyProxyPort() {
+    view.proxyPort = proxyPortOf(proxyPortInput.value.trim())
+    proxyPortInput.value = view.proxyPort
+    rememberProxyPort(view.proxyPort)
+    renderAliases()
+    if (view.openDeployment !== null) renderOpenDeployment()
+}
+
+document.getElementById('api-error-dismiss').addEventListener('click', clearApiError)
+document.getElementById('reload-projects').addEventListener('click', () => {
+    void loadProjects()
+    void loadAliases()
+})
+document.getElementById('reload-deployments').addEventListener('click', () => { void loadDeploymentsOfSelectedProject() })
+document.getElementById('new-project').addEventListener('submit', (event) => { void createProject(event) })
+queueDeploymentButton.addEventListener('click', () => { void queueDeployment() })
+aliasForm.addEventListener('submit', (event) => { void pointAliasAtOpenDeployment(event) })
+proxyPortInput.addEventListener('change', applyProxyPort)
+window.addEventListener('beforeunload', closeLogStream)
+
+queueDeploymentButton.disabled = true
+view.proxyPort = storedProxyPort()
+proxyPortInput.value = view.proxyPort
+renderOpenDeployment()
+void loadProjects()
+void loadAliases()
+</script>
+
+</body>
+</html>
