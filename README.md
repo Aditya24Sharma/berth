@@ -55,8 +55,8 @@ committed, and the programs create it — never a human.
 - [x] **M1** — SQLite schema and the api; deployments queue but nothing builds
 - [x] **M2** — Build worker: clone, build in Docker, stream logs, store output
 - [x] **M3** — Wire them together; first repo URL in, live site out
-- [ ] **M4** — Aliases, promote to production, rollback
-- [ ] **M5** — Dashboard with live build logs
+- [x] **M4** — Aliases, promote to production, rollback
+- [x] **M5** — Dashboard with live build logs
 - [ ] **M6** — GitHub webhooks, concurrent builds, garbage collection
 
 ## Scope
