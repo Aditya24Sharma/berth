@@ -20,6 +20,7 @@ export function openDatabase(path: string = defaultDatabasePath()): DatabaseSync
     db.exec('PRAGMA busy_timeout = 5000')
     db.exec('PRAGMA journal_mode = WAL')
     db.exec('PRAGMA foreign_keys = ON')
+    db.exec('PRAGMA synchronous = NORMAL')
     db.exec(readFileSync(join(import.meta.dirname, 'schema.sql'), 'utf8'))
 
     return db
