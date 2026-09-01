@@ -6,6 +6,12 @@ import (
 )
 
 func main() {
-	log.Println("berth proxy listening on :3000")
-	log.Fatal(http.ListenAndServe(":3000", http.NotFoundHandler()))
+	store, err := OpenDeploymentStore(DatabasePath())
+	if err != nil {
+		log.Fatalf("berth proxy cannot start: %v", err)
+	}
+
+	address := ProxyAddress()
+	log.Printf("berth proxy listening on %s, serving deployments from %s", address, DeploymentsDir())
+	log.Fatal(http.ListenAndServe(address, NewDeploymentServer(store, DeploymentsDir())))
 }
