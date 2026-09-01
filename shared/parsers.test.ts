@@ -2,10 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite'
 import { openDatabase } from '#shared/db.ts'
-import { insertQueuedDeployment, parseDeploymentRow } from './deployments.ts'
+import { insertQueuedDeployment, parseDeploymentRow } from '#shared/deployments.ts'
 import { newDeploymentId, newProjectId } from '#shared/ids.ts'
 import type { JsonValue } from '#shared/json.ts'
-import { insertProject, parseCreateProjectBody, parseProjectRow } from './projects.ts'
+import { insertProject, parseCreateProjectBody, parseProjectRow } from '#shared/projects.ts'
 
 const VALID_BODY: JsonValue = {
     name: 'blog',
