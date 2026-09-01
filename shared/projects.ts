@@ -1,14 +1,14 @@
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite'
-import type { ProjectId } from '#shared/ids.ts'
+import type { ProjectId, RepoUrl } from '#shared/ids.ts'
 import type { JsonValue, Parsed } from '#shared/json.ts'
-import { parseProjectId } from '#shared/ids.ts'
+import { parseProjectId, parseRepoUrl } from '#shared/ids.ts'
 import { invalid, isJsonObject, requiredString, valid } from '#shared/json.ts'
 import { requiredColumn } from '#shared/columns.ts'
 
 export type Project = {
     readonly id: ProjectId
     readonly name: string
-    readonly repoUrl: string
+    readonly repoUrl: RepoUrl
     readonly buildCmd: string
     readonly outputDir: string
     readonly createdAt: string
@@ -16,9 +16,13 @@ export type Project = {
 
 export type CreateProjectBody = {
     readonly name: string
-    readonly repoUrl: string
+    readonly repoUrl: RepoUrl
     readonly buildCmd: string
     readonly outputDir: string
+}
+
+function isRelativePathInsideRepository(path: string): boolean {
+    return !path.startsWith('/') && !path.split('/').includes('..')
 }
 
 export function parseCreateProjectBody(body: JsonValue): Parsed<CreateProjectBody> {
@@ -30,8 +34,11 @@ export function parseCreateProjectBody(body: JsonValue): Parsed<CreateProjectBod
     const name = requiredString(body['name'], 'name')
     if (!name.ok) return name
 
-    const repoUrl = requiredString(body['repoUrl'], 'repoUrl')
-    if (!repoUrl.ok) return repoUrl
+    const repoUrlString = requiredString(body['repoUrl'], 'repoUrl')
+    if (!repoUrlString.ok) return repoUrlString
+
+    const repoUrl = parseRepoUrl(repoUrlString.value)
+    if (repoUrl === null) return invalid('repoUrl must be an https url')
 
     const buildCmd = requiredString(body['buildCmd'], 'buildCmd')
     if (!buildCmd.ok) return buildCmd
@@ -39,9 +46,13 @@ export function parseCreateProjectBody(body: JsonValue): Parsed<CreateProjectBod
     const outputDir = requiredString(body['outputDir'], 'outputDir')
     if (!outputDir.ok) return outputDir
 
+    if (!isRelativePathInsideRepository(outputDir.value)) {
+        return invalid('outputDir must be a relative path inside the repository')
+    }
+
     return valid({
         name: name.value,
-        repoUrl: repoUrl.value,
+        repoUrl,
         buildCmd: buildCmd.value,
         outputDir: outputDir.value,
     })
@@ -54,8 +65,11 @@ export function parseProjectRow(row: Record<string, SQLOutputValue>): Parsed<Pro
     const name = requiredColumn(row.name, 'name')
     if (!name.ok) return name
 
-    const repoUrl = requiredColumn(row.repo_url, 'repo_url')
-    if (!repoUrl.ok) return repoUrl
+    const repoUrlColumn = requiredColumn(row.repo_url, 'repo_url')
+    if (!repoUrlColumn.ok) return repoUrlColumn
+
+    const repoUrl = parseRepoUrl(repoUrlColumn.value)
+    if (repoUrl === null) return invalid('repoUrl must be an https url')
 
     const buildCmd = requiredColumn(row.build_cmd, 'build_cmd')
     if (!buildCmd.ok) return buildCmd
@@ -72,7 +86,7 @@ export function parseProjectRow(row: Record<string, SQLOutputValue>): Parsed<Pro
     return valid({
         id: projectId,
         name: name.value,
-        repoUrl: repoUrl.value,
+        repoUrl,
         buildCmd: buildCmd.value,
         outputDir: outputDir.value,
         createdAt: createdAt.value,

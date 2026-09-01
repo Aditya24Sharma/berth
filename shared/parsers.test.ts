@@ -3,18 +3,35 @@ import assert from 'node:assert/strict'
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite'
 import { openDatabase } from '#shared/db.ts'
 import { insertQueuedDeployment, parseDeploymentRow } from '#shared/deployments.ts'
-import { newDeploymentId, newProjectId } from '#shared/ids.ts'
+import type { RepoUrl } from '#shared/ids.ts'
+import { newDeploymentId, newProjectId, parseRepoUrl } from '#shared/ids.ts'
 import type { JsonValue } from '#shared/json.ts'
-import { insertProject, parseCreateProjectBody, parseProjectRow } from '#shared/projects.ts'
+import type { CreateProjectBody } from '#shared/projects.ts'
+import { insertProject, loadProjects, parseCreateProjectBody, parseProjectRow } from '#shared/projects.ts'
 
-const VALID_BODY: JsonValue = {
+function httpsRepoUrl(value: string): RepoUrl {
+    const parsed = parseRepoUrl(value)
+    assert.ok(parsed !== null, `expected an https url: ${value}`)
+    return parsed
+}
+
+const REPO_URL = httpsRepoUrl('https://github.com/octocat/blog')
+
+const VALID_BODY: Record<string, JsonValue> = {
     name: 'blog',
-    repoUrl: 'https://github.com/octocat/blog',
+    repoUrl: REPO_URL,
     buildCmd: 'npm run build',
     outputDir: 'dist',
 }
 
-function seededDatabase(): DatabaseSync {
+const VALID_PROJECT: CreateProjectBody = {
+    name: 'blog',
+    repoUrl: REPO_URL,
+    buildCmd: 'npm run build',
+    outputDir: 'dist',
+}
+
+function emptyDatabase(): DatabaseSync {
     return openDatabase(':memory:')
 }
 
@@ -36,7 +53,7 @@ test('parseCreateProjectBody accepts a complete body', () => {
 })
 
 test('parseCreateProjectBody rejects a missing field', () => {
-    const { name, ...withoutName } = VALID_BODY as Record<string, JsonValue>
+    const { name, ...withoutName } = VALID_BODY
     assert.equal(parseCreateProjectBody(withoutName).ok, false)
 })
 
@@ -54,20 +71,40 @@ test('parseCreateProjectBody rejects a body that is not an object', () => {
     }
 })
 
+test('parseCreateProjectBody rejects a repoUrl that is not an https url', () => {
+    const rejected = [
+        'http://github.com/octocat/blog',
+        'ssh://git@github.com/octocat/blog',
+        'git@github.com:octocat/blog.git',
+        'ext::sh -c whoami',
+        'file:///etc/passwd',
+        'https://octocat:hunter2@github.com/octocat/blog',
+    ]
+
+    for (const repoUrl of rejected) {
+        const result = parseCreateProjectBody({ ...VALID_BODY, repoUrl })
+        assert.deepEqual(result, { ok: false, error: 'repoUrl must be an https url' }, `should reject ${repoUrl}`)
+    }
+})
+
+test('parseCreateProjectBody rejects an outputDir that leaves the repository', () => {
+    for (const outputDir of ['/etc', '../..', 'dist/../../..']) {
+        const result = parseCreateProjectBody({ ...VALID_BODY, outputDir })
+        const error = 'outputDir must be a relative path inside the repository'
+        assert.deepEqual(result, { ok: false, error }, `should reject ${outputDir}`)
+    }
+})
+
 test('parseProjectRow reads back what insertProject wrote', () => {
-    const db = seededDatabase()
+    const db = emptyDatabase()
     const id = newProjectId()
-    insertProject(db, id, {
-        name: 'blog',
-        repoUrl: 'https://github.com/octocat/blog',
-        buildCmd: 'npm run build',
-        outputDir: 'dist',
-    })
+    insertProject(db, id, VALID_PROJECT)
 
     const result = parseProjectRow(onlyRow(db, 'SELECT * FROM projects'))
     assert.ok(result.ok, result.ok ? '' : result.error)
     assert.equal(result.value.id, id)
     assert.equal(result.value.name, 'blog')
+    assert.equal(result.value.repoUrl, REPO_URL)
     assert.equal(result.value.outputDir, 'dist')
     assert.match(result.value.createdAt, /^\d{4}-\d{2}-\d{2}T/)
 })
@@ -77,14 +114,29 @@ test('parseProjectRow rejects a row with a missing column', () => {
 })
 
 test('parseProjectRow rejects a row whose id is not a project id', () => {
-    const row = { id: 'dpl_0123456789ab', name: 'b', repo_url: 'r', build_cmd: 'c', output_dir: 'd', created_at: '2026-01-01T00:00:00Z' }
-    assert.equal(parseProjectRow(row).ok, false)
+    const row = { id: 'dpl_0123456789ab', name: 'b', repo_url: REPO_URL, build_cmd: 'c', output_dir: 'd', created_at: '2026-01-01T00:00:00Z' }
+    assert.deepEqual(parseProjectRow(row), { ok: false, error: 'id is not a project id' })
+})
+
+test('parseProjectRow rejects a row whose repo_url is not an https url', () => {
+    const row = { id: 'prj_0123456789ab', name: 'b', repo_url: 'git@github.com:octocat/blog.git', build_cmd: 'c', output_dir: 'd', created_at: '2026-01-01T00:00:00Z' }
+    assert.deepEqual(parseProjectRow(row), { ok: false, error: 'repoUrl must be an https url' })
+})
+
+test('loadProjects fails rather than skips when a stored repo_url is not an https url', () => {
+    const db = emptyDatabase()
+    db.prepare(
+        `INSERT INTO projects (id, name, repo_url, build_cmd, output_dir)
+         VALUES (?, 'blog', 'git@github.com:octocat/blog.git', 'npm run build', 'dist')`,
+    ).run(newProjectId())
+
+    assert.deepEqual(loadProjects(db), { ok: false, error: 'repoUrl must be an https url' })
 })
 
 test('parseDeploymentRow reads a freshly queued deployment', () => {
-    const db = seededDatabase()
+    const db = emptyDatabase()
     const projectId = newProjectId()
-    insertProject(db, projectId, { name: 'b', repoUrl: 'r', buildCmd: 'c', outputDir: 'd' })
+    insertProject(db, projectId, VALID_PROJECT)
     const id = newDeploymentId()
     insertQueuedDeployment(db, id, projectId)
 
