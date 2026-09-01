@@ -3,7 +3,7 @@ import type { ProjectId } from "#shared/ids.ts";
 import type { JsonValue, Parsed } from "#shared/json.ts";
 import { parseProjectId } from "#shared/ids.ts";
 import { invalid, isJsonObject, valid } from "#shared/json.ts";
-import { requiredColumn } from "./columns.ts";
+import { requiredColumn } from "#shared/columns.ts";
 
 export type Project = {
     readonly id: ProjectId;
