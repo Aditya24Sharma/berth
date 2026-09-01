@@ -26,6 +26,10 @@ export function routeOf(method: string, url: string): Route {
         return method === 'GET' ? { kind: 'dashboard' } : noRoute
     }
 
+    if (first === 'dashboard.html' && second === undefined) {
+        return method === 'GET' ? { kind: 'dashboard' } : noRoute
+    }
+
     if (first === 'projects') {
         if (second === undefined) {
             if (method === 'POST') return { kind: 'createProject' }
