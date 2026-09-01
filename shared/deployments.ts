@@ -10,18 +10,33 @@ type DeploymentCommon = {
     readonly createdAt: string
 }
 
-export type Deployment = DeploymentCommon &
-    (
-        | { readonly status: 'queued' }
-        | { readonly status: 'building'; readonly startedAt: string }
-        | { readonly status: 'ready'; readonly startedAt: string; readonly finishedAt: string }
-        | {
-            readonly status: 'failed'
-            readonly startedAt: string
-            readonly finishedAt: string
-            readonly error: string
-        }
-    )
+export type QueuedDeployment = DeploymentCommon & {
+    readonly status: 'queued'
+}
+
+export type BuildingDeployment = DeploymentCommon & {
+    readonly status: 'building'
+    readonly startedAt: string
+}
+
+export type ReadyDeployment = DeploymentCommon & {
+    readonly status: 'ready'
+    readonly startedAt: string
+    readonly finishedAt: string
+}
+
+export type FailedDeployment = DeploymentCommon & {
+    readonly status: 'failed'
+    readonly startedAt: string
+    readonly finishedAt: string
+    readonly error: string
+}
+
+export type Deployment =
+    | QueuedDeployment
+    | BuildingDeployment
+    | ReadyDeployment
+    | FailedDeployment
 
 export function parseDeploymentRow(row: Record<string, SQLOutputValue>): Parsed<Deployment> {
     const idColumn = requiredColumn(row.id, 'id')
