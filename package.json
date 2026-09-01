@@ -1,10 +1,10 @@
 {
-	"name": "berth-api",
+	"name": "berth",
 	"private": true,
 	"version": "1.0.0",
-	"description": "Control plane. HTTP server (TypeScript) that owns projects, accepts deploy requests and reports status and logs.",
+	"description": "A small deployment platform. Give it a Git repository; it builds the site and serves it at its own URL.",
 	"scripts": {
-		"dev": "node --watch src/index.ts",
+		"dev:api": "node --watch api/src/index.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "node --test"
 	},
